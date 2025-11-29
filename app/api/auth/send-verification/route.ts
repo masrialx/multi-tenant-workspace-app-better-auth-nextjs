@@ -1,17 +1,22 @@
 import { getSessionUser } from "@/lib/auth"
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
 import { randomBytes } from "crypto"
 import { sendEmail } from "@/lib/email"
 import { getEmailVerificationTemplate } from "@/lib/email-templates"
 import { validateEmailFormat, canReceiveEmails, getEmailErrorMessage } from "@/lib/email-validation"
-
-const prisma = new PrismaClient()
+import {
+  unauthorizedResponse,
+  badRequestResponse,
+  notFoundResponse,
+  successResponse,
+  handleApiError,
+} from "@/lib/api-response"
 
 export async function POST(request: Request) {
   try {
     const user = await getSessionUser(request)
     if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
+      return unauthorizedResponse()
     }
 
     // Check if already verified
@@ -20,33 +25,29 @@ export async function POST(request: Request) {
     })
 
     if (!dbUser) {
-      return Response.json({ error: "User not found" }, { status: 404 })
+      return notFoundResponse("User")
     }
 
     // Validate email format before sending
     const emailValidation = validateEmailFormat(dbUser.email)
     if (!emailValidation.valid) {
-      return Response.json({
-        error: "Email is not valid",
-        errorCode: emailValidation.errorCode,
-        success: false,
-        message: `Your email address "${dbUser.email}" is not valid. ${getEmailErrorMessage(emailValidation)} Please update your email address in your account settings.`,
-      }, { status: 400 })
+      return badRequestResponse(
+        `Your email address "${dbUser.email}" is not valid. ${getEmailErrorMessage(emailValidation)}`,
+        emailValidation.errorCode
+      )
     }
 
     // Check if email can receive emails
     const emailReceivable = canReceiveEmails(dbUser.email)
     if (!emailReceivable.valid) {
-      return Response.json({
-        error: "Email cannot receive messages",
-        errorCode: emailReceivable.errorCode,
-        success: false,
-        message: `Your email address "${dbUser.email}" cannot receive emails. ${getEmailErrorMessage(emailReceivable)} Please update your email address to a valid one.`,
-      }, { status: 400 })
+      return badRequestResponse(
+        `Your email address "${dbUser.email}" cannot receive emails. ${getEmailErrorMessage(emailReceivable)}`,
+        emailReceivable.errorCode
+      )
     }
 
     if (dbUser.emailVerified) {
-      return Response.json({ error: "Email is already verified" }, { status: 400 })
+      return badRequestResponse("Email is already verified", "ALREADY_VERIFIED")
     }
 
     // Generate verification token
@@ -99,7 +100,7 @@ Thanks.`
             html: getEmailVerificationTemplate(verificationLink, "7 hours"),
           })
       
-      return Response.json({ success: true, message: "Verification email sent" })
+      return successResponse(undefined, "Verification email sent")
     } catch (emailError: any) {
       console.error("❌ Failed to send verification email to:", dbUser.email, {
         error: emailError.message,
@@ -130,17 +131,12 @@ Thanks.`
         userMessage = `Your email address "${dbUser.email}" appears to be invalid or cannot receive emails. Please update your email address.`
       }
 
-      return Response.json({
-        error: errorMessage,
-        errorCode,
-        success: false,
-        retryable: true,
-        message: userMessage,
-      }, { status: 500 })
+      return handleApiError(
+        new Error(userMessage) as Error & { code?: string; errorCode?: string }
+      )
     }
   } catch (error) {
-    console.error("POST /api/auth/send-verification error:", error)
-    return Response.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error)
   }
 }
 

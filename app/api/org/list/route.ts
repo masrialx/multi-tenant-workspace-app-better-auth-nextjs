@@ -1,34 +1,43 @@
-import {  getSessionUser } from "@/lib/auth"
-import { PrismaClient } from "@prisma/client"
-
-const prisma = new PrismaClient()
-
+import { getSessionUser } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { unauthorizedResponse, successResponse, handleApiError } from "@/lib/api-response"
 
 // GET /api/org/list
 export async function GET(request: Request) {
   try {
     const user = await getSessionUser(request)
-    console.log("@@User", user)
     if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
+      return unauthorizedResponse()
     }
 
     // Get all organizations where user is a member
     const organizations = await prisma.organizationMember.findMany({
       where: { userId: user.id },
       include: {
-        organization: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            logo: true,
+            createdAt: true,
+            updatedAt: true,
+            ownerId: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
       },
     })
 
-    return Response.json({
+    return successResponse({
       organizations: organizations.map((m) => ({
         ...m.organization,
         role: m.role,
       })),
     })
   } catch (error) {
-    console.error("GET /api/org/list error:", error)
-    return Response.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error)
   }
 }

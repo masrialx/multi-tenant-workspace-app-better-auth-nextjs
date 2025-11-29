@@ -1,13 +1,17 @@
 import { getSessionUser } from "@/lib/auth"
-import { PrismaClient } from "@prisma/client"
-
-const prisma = new PrismaClient()
+import { prisma } from "@/lib/prisma"
+import {
+  unauthorizedResponse,
+  notFoundResponse,
+  successResponse,
+  handleApiError,
+} from "@/lib/api-response"
 
 export async function GET(request: Request) {
   try {
     const user = await getSessionUser(request)
     if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
+      return unauthorizedResponse()
     }
 
     const dbUser = await prisma.user.findUnique({
@@ -18,13 +22,12 @@ export async function GET(request: Request) {
     })
 
     if (!dbUser) {
-      return Response.json({ error: "User not found" }, { status: 404 })
+      return notFoundResponse("User")
     }
 
-    return Response.json({ emailVerified: dbUser.emailVerified })
+    return successResponse({ emailVerified: dbUser.emailVerified })
   } catch (error) {
-    console.error("GET /api/user/verification-status error:", error)
-    return Response.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error)
   }
 }
 

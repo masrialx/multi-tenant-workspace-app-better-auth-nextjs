@@ -1,16 +1,10 @@
-import { getSessionUser } from "@/lib/auth"
-import { PrismaClient } from "@prisma/client"
-import { z } from "zod"
+import { prisma } from "@/lib/prisma"
+import { forgotPasswordSchema } from "@/lib/validation"
 import { randomBytes } from "crypto"
 import { sendEmail } from "@/lib/email"
 import { getPasswordResetTemplate } from "@/lib/email-templates"
 import { validateEmailFormat, canReceiveEmails, getEmailErrorMessage } from "@/lib/email-validation"
-
-const prisma = new PrismaClient()
-
-const forgotPasswordSchema = z.object({
-  email: z.string().email(),
-})
+import { badRequestResponse, notFoundResponse, successResponse, handleApiError } from "@/lib/api-response"
 
 export async function POST(request: Request) {
   try {
@@ -19,23 +13,19 @@ export async function POST(request: Request) {
     // Validate email format first
     const emailValidation = validateEmailFormat(body.email)
     if (!emailValidation.valid) {
-      return Response.json({
-        error: "Email is not valid",
-        errorCode: emailValidation.errorCode,
-        success: false,
-        message: `The email address "${body.email}" is not valid. ${getEmailErrorMessage(emailValidation)} I cannot send email to this address.`,
-      }, { status: 400 })
+      return badRequestResponse(
+        `The email address "${body.email}" is not valid. ${getEmailErrorMessage(emailValidation)}`,
+        emailValidation.errorCode
+      )
     }
 
     // Check if email can receive emails
     const emailReceivable = canReceiveEmails(body.email)
     if (!emailReceivable.valid) {
-      return Response.json({
-        error: "Email cannot receive messages",
-        errorCode: emailReceivable.errorCode,
-        success: false,
-        message: `The email address "${body.email}" cannot receive emails. ${getEmailErrorMessage(emailReceivable)} I cannot send email to this address.`,
-      }, { status: 400 })
+      return badRequestResponse(
+        `The email address "${body.email}" cannot receive emails. ${getEmailErrorMessage(emailReceivable)}`,
+        emailReceivable.errorCode
+      )
     }
 
     const data = forgotPasswordSchema.parse(body)
@@ -46,17 +36,18 @@ export async function POST(request: Request) {
     })
 
     if (!user) {
-      return Response.json({ 
-        error: "No account found with this email address. Please check your email and try again.",
-        success: false,
-        errorCode: "USER_NOT_FOUND",
-      }, { status: 404 })
+      // Don't reveal if user exists for security (prevent email enumeration)
+      // Still send success response to prevent user enumeration attacks
+      return successResponse(
+        undefined,
+        "If an account exists with this email, a password reset link has been sent."
+      )
     }
 
     // Generate reset token
     const resetToken = randomBytes(32).toString("hex")
     const expiresAt = new Date()
-    expiresAt.setHours(expiresAt.getHours() + 1) // Token expires in 1 hour
+    expiresAt.setHours(expiresAt.getHours() + 7) // Token expires in 7 hours (matches email message)
 
     // Store reset token in verification table
     await prisma.verification.upsert({
@@ -103,41 +94,23 @@ Thanks.`
         html: getPasswordResetTemplate(resetLink, "7 hours"),
       })
       
-      return Response.json({ 
-        success: true,
-        message: "Password reset link has been sent to your email address." 
-      })
+      // Don't reveal if user exists for security (prevent email enumeration)
+      return successResponse(
+        undefined,
+        "If an account exists with this email, a password reset link has been sent."
+      )
     } catch (emailError: any) {
       console.error("Failed to send password reset email:", emailError)
       
-      // Check error type and provide specific message
-      let errorMessage = "Failed to send password reset email"
-      let errorCode = "EMAIL_SEND_FAILED"
-
-      if (emailError.message?.includes("authentication")) {
-        errorMessage = "Email service authentication failed. Please contact support."
-        errorCode = "SMTP_AUTH_ERROR"
-      } else if (emailError.message?.includes("timeout") || emailError.message?.includes("connection")) {
-        errorMessage = "Unable to connect to email server. Please try again later."
-        errorCode = "SMTP_CONNECTION_ERROR"
-      } else if (emailError.message?.includes("invalid") || emailError.message?.includes("not valid")) {
-        errorMessage = "The email address is invalid and cannot receive emails. Please use a valid email address."
-        errorCode = "INVALID_EMAIL_DELIVERY"
-      }
-
-      return Response.json({
-        error: errorMessage,
-        errorCode,
-        success: false,
-        message: "We were unable to send the password reset email. Please verify your email address is correct and try again.",
-      }, { status: 500 })
+      // Don't reveal email send failures to prevent user enumeration
+      // Log error but return generic success message
+      return successResponse(
+        undefined,
+        "If an account exists with this email, a password reset link has been sent."
+      )
     }
   } catch (error) {
-    console.error("POST /api/auth/forgot-password error:", error)
-    if (error instanceof z.ZodError) {
-      return Response.json({ error: error.errors[0].message }, { status: 400 })
-    }
-    return Response.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error)
   }
 }
 

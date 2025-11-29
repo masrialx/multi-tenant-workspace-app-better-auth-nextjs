@@ -1,50 +1,34 @@
 import { getSessionUser } from "@/lib/auth"
-import { PrismaClient } from "@prisma/client"
-import { headers } from "next/headers"
-import { z } from "zod"
-
-const prisma = new PrismaClient()
-
-
-async function checkOrgAccess(userId: string, orgId: string) {
-  const member = await prisma.organizationMember.findUnique({
-    where: {
-      organizationId_userId: {
-        organizationId: orgId,
-        userId,
-      },
-    },
-  })
-
-  return member
-}
-
-async function checkOrgOwner(userId: string, orgId: string) {
-  const org = await prisma.organization.findUnique({
-    where: { id: orgId },
-  })
-
-  return org?.ownerId === userId
-}
+import { prisma } from "@/lib/prisma"
+import { checkOrgAccess, checkOrgOwner } from "@/lib/auth-utils"
+import { inviteMemberSchema } from "@/lib/validation"
+import {
+  unauthorizedResponse,
+  badRequestResponse,
+  forbiddenResponse,
+  notFoundResponse,
+  successResponse,
+  handleApiError,
+} from "@/lib/api-response"
 
 // GET /api/org/members?orgId=...
 export async function GET(request: Request) {
   try {
     const user = await getSessionUser(request)
     if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
+      return unauthorizedResponse()
     }
 
     const { searchParams } = new URL(request.url)
     const orgId = searchParams.get("orgId")
 
     if (!orgId) {
-      return Response.json({ error: "orgId is required" }, { status: 400 })
+      return badRequestResponse("orgId is required", "MISSING_ORG_ID")
     }
 
     const access = await checkOrgAccess(user.id, orgId)
-    if (!access) {
-      return Response.json({ error: "Access denied" }, { status: 403 })
+    if (!access.hasAccess) {
+      return forbiddenResponse("You do not have access to this organization")
     }
 
     const members = await prisma.organizationMember.findMany({
@@ -59,49 +43,43 @@ export async function GET(request: Request) {
           },
         },
       },
-    })
-
-    // Get organization details
-    const organization = await prisma.organization.findUnique({
-      where: { id: orgId },
-      select: {
-        id: true,
-        name: true,
-        ownerId: true,
+      orderBy: {
+        createdAt: "asc",
       },
     })
 
-    return Response.json({ 
+    return successResponse({
       members,
-      organization: organization || null
+      organization: access.organization,
     })
   } catch (error) {
-    console.error("GET /api/org/members error:", error)
-    return Response.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error)
   }
 }
 
 // POST /api/org/members (invite)
-const inviteSchema = z.object({
-  orgId: z.string(),
-  email: z.string().email(),
-  role: z.enum(["owner", "member"]).default("member"),
-})
-
 export async function POST(request: Request) {
   try {
     const user = await getSessionUser(request)
     if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
+      return unauthorizedResponse()
     }
 
-    // Read request body once
     const body = await request.json()
-    const data = inviteSchema.parse(body)
+    const data = inviteMemberSchema.parse(body)
 
     const isOwner = await checkOrgOwner(user.id, data.orgId)
     if (!isOwner) {
-      return Response.json({ error: "Only organization owner can invite members" }, { status: 403 })
+      return forbiddenResponse("Only organization owner can invite members")
+    }
+
+    // Check if organization exists
+    const organization = await prisma.organization.findUnique({
+      where: { id: data.orgId },
+    })
+
+    if (!organization) {
+      return notFoundResponse("Organization")
     }
 
     // Check if user exists
@@ -110,7 +88,12 @@ export async function POST(request: Request) {
     })
 
     if (!invitedUser) {
-      return Response.json({ error: "User not found. The email address does not exist in our system." }, { status: 404 })
+      return notFoundResponse("User with this email address")
+    }
+
+    // Prevent inviting yourself
+    if (invitedUser.id === user.id) {
+      return badRequestResponse("You are already a member of this organization", "ALREADY_MEMBER")
     }
 
     // Check if already a member
@@ -124,7 +107,12 @@ export async function POST(request: Request) {
     })
 
     if (existingMember) {
-      return Response.json({ error: "User is already a member" }, { status: 400 })
+      return badRequestResponse("User is already a member of this organization", "ALREADY_MEMBER")
+    }
+
+    // Prevent inviting as owner (only one owner allowed)
+    if (data.role === "owner") {
+      return badRequestResponse("Cannot invite additional owners. Only one owner is allowed per organization.", "INVALID_ROLE")
     }
 
     // Add member
@@ -146,10 +134,9 @@ export async function POST(request: Request) {
       },
     })
 
-    return Response.json({ member })
+    return successResponse({ member }, "Member invited successfully")
   } catch (error) {
-    console.error("POST /api/org/members error:", error)
-    return Response.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error)
   }
 }
 
@@ -158,7 +145,7 @@ export async function DELETE(request: Request) {
   try {
     const user = await getSessionUser(request)
     if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
+      return unauthorizedResponse()
     }
 
     const { searchParams } = new URL(request.url)
@@ -166,21 +153,40 @@ export async function DELETE(request: Request) {
     const userId = searchParams.get("userId")
 
     if (!orgId || !userId) {
-      return Response.json({ error: "orgId and userId are required" }, { status: 400 })
+      return badRequestResponse("orgId and userId are required", "MISSING_PARAMS")
     }
 
     const isOwner = await checkOrgOwner(user.id, orgId)
     if (!isOwner) {
-      return Response.json({ error: "Only organization owner can remove members" }, { status: 403 })
+      return forbiddenResponse("Only organization owner can remove members")
     }
 
-    // Check if trying to remove the owner
+    // Check if organization exists
     const org = await prisma.organization.findUnique({
       where: { id: orgId },
     })
 
-    if (org?.ownerId === userId) {
-      return Response.json({ error: "Cannot remove the organization owner" }, { status: 400 })
+    if (!org) {
+      return notFoundResponse("Organization")
+    }
+
+    // Check if trying to remove the owner
+    if (org.ownerId === userId) {
+      return badRequestResponse("Cannot remove the organization owner", "CANNOT_REMOVE_OWNER")
+    }
+
+    // Check if member exists
+    const member = await prisma.organizationMember.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId: orgId,
+          userId,
+        },
+      },
+    })
+
+    if (!member) {
+      return notFoundResponse("Member")
     }
 
     await prisma.organizationMember.delete({
@@ -192,9 +198,8 @@ export async function DELETE(request: Request) {
       },
     })
 
-    return Response.json({ success: true })
+    return successResponse(undefined, "Member removed successfully")
   } catch (error) {
-    console.error("DELETE /api/org/members error:", error)
-    return Response.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error)
   }
 }

@@ -1,14 +1,7 @@
-import { getSessionUser } from "@/lib/auth"
-import { PrismaClient } from "@prisma/client"
-import { z } from "zod"
+import { prisma } from "@/lib/prisma"
+import { resetPasswordSchema } from "@/lib/validation"
 import { hash } from "bcryptjs"
-
-const prisma = new PrismaClient()
-
-const resetPasswordSchema = z.object({
-  token: z.string(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-})
+import { badRequestResponse, successResponse, handleApiError } from "@/lib/api-response"
 
 export async function POST(request: Request) {
   try {
@@ -28,7 +21,7 @@ export async function POST(request: Request) {
     })
 
     if (!verification) {
-      return Response.json({ error: "Invalid or expired reset token" }, { status: 400 })
+      return badRequestResponse("Invalid or expired reset token", "INVALID_TOKEN")
     }
 
     // Check if token is expired
@@ -36,7 +29,7 @@ export async function POST(request: Request) {
       await prisma.verification.delete({
         where: { id: verification.id },
       })
-      return Response.json({ error: "Reset token has expired" }, { status: 400 })
+      return badRequestResponse("Reset token has expired. Please request a new password reset.", "TOKEN_EXPIRED")
     }
 
     // Hash new password
@@ -55,13 +48,9 @@ export async function POST(request: Request) {
       where: { id: verification.id },
     })
 
-    return Response.json({ success: true, message: "Password reset successfully" })
+    return successResponse(undefined, "Password reset successfully")
   } catch (error) {
-    console.error("POST /api/auth/reset-password error:", error)
-    if (error instanceof z.ZodError) {
-      return Response.json({ error: error.errors[0].message }, { status: 400 })
-    }
-    return Response.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error)
   }
 }
 

@@ -1,13 +1,11 @@
 import { betterAuth } from "better-auth"
 import { prismaAdapter } from "better-auth/adapters/prisma"
 import { organization } from "better-auth/plugins"
-import { PrismaClient } from "@prisma/client"
 import { headers } from "next/headers"
 import type { NextRequest } from "next/server"
+import { prisma } from "./prisma"
 import { sendEmail } from "./email"
 import { getOrganizationInvitationTemplate } from "./email-templates"
-
-const prisma = new PrismaClient()
 
 
 export const auth = betterAuth({

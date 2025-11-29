@@ -1,34 +1,30 @@
 import { getSessionUser } from "@/lib/auth"
-import { PrismaClient } from "@prisma/client"
-import { z } from "zod"
-
-const prisma = new PrismaClient()
-
-
-const joinOrgSchema = z.object({
-  slug: z.string().min(1, "Organization slug is required"),
-})
+import { prisma } from "@/lib/prisma"
+import { joinOrgSchema, generateSlug } from "@/lib/validation"
+import {
+  unauthorizedResponse,
+  badRequestResponse,
+  notFoundResponse,
+  successResponse,
+  handleApiError,
+} from "@/lib/api-response"
 
 // POST /api/org/join
 export async function POST(request: Request) {
   try {
     const user = await getSessionUser(request)
     if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
+      return unauthorizedResponse()
     }
 
     const body = await request.json()
     const data = joinOrgSchema.parse(body)
 
     // Normalize slug (same as in create route)
-    const normalizedSlug = data.slug
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
+    const normalizedSlug = generateSlug(data.slug)
 
     if (!normalizedSlug) {
-      return Response.json({ error: "Invalid organization slug" }, { status: 400 })
+      return badRequestResponse("Invalid organization slug", "INVALID_SLUG")
     }
 
     // Find organization by slug
@@ -37,10 +33,7 @@ export async function POST(request: Request) {
     })
 
     if (!org) {
-      console.log(`Organization not found for slug: "${normalizedSlug}" (original: "${data.slug}")`)
-      return Response.json({ 
-        error: `Organization with slug "${normalizedSlug}" not found. Please check the slug and try again.` 
-      }, { status: 404 })
+      return notFoundResponse(`Organization with slug "${normalizedSlug}"`)
     }
 
     // Check if already a member
@@ -54,7 +47,7 @@ export async function POST(request: Request) {
     })
 
     if (existingMember) {
-      return Response.json({ error: "You are already a member of this organization" }, { status: 400 })
+      return badRequestResponse("You are already a member of this organization", "ALREADY_MEMBER")
     }
 
     // Check if there's already a pending join request
@@ -70,10 +63,10 @@ export async function POST(request: Request) {
     })
 
     if (existingRequest) {
-      return Response.json({ 
-        error: "You already have a pending join request for this organization",
-        pending: true 
-      }, { status: 400 })
+      return badRequestResponse(
+        "You already have a pending join request for this organization",
+        "PENDING_REQUEST"
+      )
     }
 
     // Create notification for organization owner
@@ -93,17 +86,17 @@ export async function POST(request: Request) {
       },
     })
 
-    return Response.json({ 
-      success: true,
-      message: "Join request sent. The organization owner will be notified.",
-      organization: org 
-    })
+    return successResponse(
+      {
+        organization: {
+          id: org.id,
+          name: org.name,
+          slug: org.slug,
+        },
+      },
+      "Join request sent. The organization owner will be notified."
+    )
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return Response.json({ error: error.errors[0].message }, { status: 400 })
-    }
-
-    console.error("POST /api/org/join error:", error)
-    return Response.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error)
   }
 }

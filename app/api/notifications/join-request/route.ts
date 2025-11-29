@@ -1,26 +1,27 @@
 import { getSessionUser } from "@/lib/auth"
-import { PrismaClient } from "@prisma/client"
-import { z } from "zod"
+import { prisma } from "@/lib/prisma"
+import { joinRequestSchema } from "@/lib/validation"
 import { sendEmail } from "@/lib/email"
 import { getJoinRequestAcceptedTemplate, getJoinRequestRejectedTemplate } from "@/lib/email-templates"
-import { validateEmailFormat, canReceiveEmails } from "@/lib/email-validation"
-
-const prisma = new PrismaClient()
-
-const joinRequestSchema = z.object({
-  notificationId: z.string(),
-  action: z.enum(["accept", "reject"]),
-})
+import {
+  unauthorizedResponse,
+  badRequestResponse,
+  forbiddenResponse,
+  notFoundResponse,
+  successResponse,
+  handleApiError,
+} from "@/lib/api-response"
 
 // POST /api/notifications/join-request - Accept or reject join request
 export async function POST(request: Request) {
   try {
     const user = await getSessionUser(request)
     if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
+      return unauthorizedResponse()
     }
 
-    const data = joinRequestSchema.parse(await request.json())
+    const body = await request.json()
+    const data = joinRequestSchema.parse(body)
 
     // Get the notification
     const notification = await prisma.notification.findUnique({
@@ -28,25 +29,36 @@ export async function POST(request: Request) {
     })
 
     if (!notification) {
-      return Response.json({ error: "Notification not found" }, { status: 404 })
+      return notFoundResponse("Notification")
     }
 
     // Verify the notification belongs to the user (owner)
     if (notification.userId !== user.id) {
-      return Response.json({ error: "Unauthorized" }, { status: 403 })
+      return forbiddenResponse("You do not have permission to modify this notification")
     }
 
     // Verify it's a join request
     if (notification.type !== "join_request") {
-      return Response.json({ error: "Invalid notification type" }, { status: 400 })
+      return badRequestResponse("Invalid notification type", "INVALID_NOTIFICATION_TYPE")
     }
 
     // Parse metadata
-    const metadata = JSON.parse(notification.metadata || "{}")
+    let metadata: {
+      organizationId?: string
+      requestingUserId?: string
+      requestingUserName?: string
+      organizationName?: string
+    }
+    try {
+      metadata = JSON.parse(notification.metadata || "{}")
+    } catch {
+      return badRequestResponse("Invalid notification metadata", "INVALID_METADATA")
+    }
+
     const { organizationId, requestingUserId, requestingUserName, organizationName } = metadata
 
     if (!organizationId || !requestingUserId) {
-      return Response.json({ error: "Invalid notification metadata" }, { status: 400 })
+      return badRequestResponse("Invalid notification metadata", "INVALID_METADATA")
     }
 
     // Verify user is the owner of the organization
@@ -54,8 +66,12 @@ export async function POST(request: Request) {
       where: { id: organizationId },
     })
 
-    if (!org || org.ownerId !== user.id) {
-      return Response.json({ error: "Only organization owner can accept/reject requests" }, { status: 403 })
+    if (!org) {
+      return notFoundResponse("Organization")
+    }
+
+    if (org.ownerId !== user.id) {
+      return forbiddenResponse("Only organization owner can accept/reject requests")
     }
 
     if (data.action === "accept") {
@@ -75,11 +91,10 @@ export async function POST(request: Request) {
           where: { id: data.notificationId },
           data: { read: true },
         })
-        return Response.json({ 
-          success: true, 
-          message: "User is already a member",
-          alreadyMember: true 
-        })
+        return successResponse(
+          { alreadyMember: true },
+          "User is already a member of this organization"
+        )
       }
 
       // Add user as member
@@ -144,10 +159,7 @@ export async function POST(request: Request) {
         data: { read: true },
       })
 
-      return Response.json({ 
-        success: true, 
-        message: "Join request accepted" 
-      })
+      return successResponse(undefined, "Join request accepted")
     } else {
       // Reject the request
       // Create notification for the requesting user
@@ -203,17 +215,10 @@ export async function POST(request: Request) {
         data: { read: true },
       })
 
-      return Response.json({ 
-        success: true, 
-        message: "Join request rejected" 
-      })
+      return successResponse(undefined, "Join request rejected")
     }
   } catch (error) {
-    console.error("POST /api/notifications/join-request error:", error)
-    if (error instanceof z.ZodError) {
-      return Response.json({ error: error.errors[0].message }, { status: 400 })
-    }
-    return Response.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error)
   }
 }
 

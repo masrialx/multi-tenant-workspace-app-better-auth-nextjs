@@ -1,24 +1,19 @@
 import { getSessionUser } from "@/lib/auth"
-import { PrismaClient } from "@prisma/client"
-
-const prisma = new PrismaClient()
+import { prisma } from "@/lib/prisma"
+import {
+  unauthorizedResponse,
+  badRequestResponse,
+  forbiddenResponse,
+  successResponse,
+  handleApiError,
+} from "@/lib/api-response"
 
 // GET /api/notifications - Get all notifications for current user
 export async function GET(request: Request) {
   try {
     const user = await getSessionUser(request)
     if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Check if notification model exists
-    if (!prisma.notification) {
-      console.error("Prisma notification model not available. Please restart the dev server.")
-      return Response.json({ 
-        error: "Notification service unavailable. Please restart the server.",
-        notifications: [],
-        unreadCount: 0
-      }, { status: 503 })
+      return unauthorizedResponse()
     }
 
     const notifications = await prisma.notification.findMany({
@@ -29,17 +24,12 @@ export async function GET(request: Request) {
 
     const unreadCount = notifications.filter((n) => !n.read).length
 
-    return Response.json({ 
+    return successResponse({
       notifications,
-      unreadCount 
+      unreadCount,
     })
   } catch (error) {
-    console.error("GET /api/notifications error:", error)
-    return Response.json({ 
-      error: "Internal server error",
-      notifications: [],
-      unreadCount: 0
-    }, { status: 500 })
+    return handleApiError(error)
   }
 }
 
@@ -48,25 +38,40 @@ export async function PATCH(request: Request) {
   try {
     const user = await getSessionUser(request)
     if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
+      return unauthorizedResponse()
     }
 
-    const { notificationId, markAllAsRead } = await request.json()
+    const body = await request.json()
+    const { notificationId, markAllAsRead } = body
 
     if (markAllAsRead) {
       // Mark all notifications as read
       await prisma.notification.updateMany({
-        where: { 
+        where: {
           userId: user.id,
-          read: false 
+          read: false,
         },
         data: { read: true },
       })
-      return Response.json({ success: true, message: "All notifications marked as read" })
+      return successResponse(undefined, "All notifications marked as read")
     }
 
     if (!notificationId) {
-      return Response.json({ error: "notificationId is required" }, { status: 400 })
+      return badRequestResponse("notificationId is required when markAllAsRead is false", "MISSING_NOTIFICATION_ID")
+    }
+
+    // Verify the notification exists and belongs to the user before updating
+    const existingNotification = await prisma.notification.findUnique({
+      where: { id: notificationId },
+      select: { userId: true },
+    })
+
+    if (!existingNotification) {
+      return badRequestResponse("Notification not found", "NOTIFICATION_NOT_FOUND")
+    }
+
+    if (existingNotification.userId !== user.id) {
+      return forbiddenResponse("You do not have permission to modify this notification")
     }
 
     // Mark single notification as read
@@ -75,15 +80,9 @@ export async function PATCH(request: Request) {
       data: { read: true },
     })
 
-    // Verify the notification belongs to the user
-    if (notification.userId !== user.id) {
-      return Response.json({ error: "Unauthorized" }, { status: 403 })
-    }
-
-    return Response.json({ success: true, notification })
+    return successResponse({ notification }, "Notification marked as read")
   } catch (error) {
-    console.error("PATCH /api/notifications error:", error)
-    return Response.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error)
   }
 }
 

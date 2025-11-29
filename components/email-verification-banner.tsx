@@ -105,7 +105,7 @@ export function EmailVerificationBanner() {
               Verify Your Email Address
             </h3>
             <p className="text-sm text-muted-foreground mb-3">
-              Your email address hasn't been verified yet. Please verify your email to access all features.
+              Your email address hasn't been verified yet. Please verify your email
             </p>
             {isSent ? (
               <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">

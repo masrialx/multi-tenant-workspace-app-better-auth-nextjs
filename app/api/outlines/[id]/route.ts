@@ -1,86 +1,82 @@
 import { getSessionUser } from "@/lib/auth"
-import { PrismaClient } from "@prisma/client"
-import { z } from "zod"
-
-const prisma = new PrismaClient()
-
-async function checkOrgAccess(userId: string, orgId: string) {
-  return prisma.organizationMember.findUnique({
-    where: {
-      organizationId_userId: {
-        organizationId: orgId,
-        userId,
-      },
-    },
-  })
-}
-
-async function checkOrgOwner(userId: string, orgId: string) {
-  const org = await prisma.organization.findUnique({
-    where: { id: orgId },
-  })
-
-  return org?.ownerId === userId
-}
+import { prisma } from "@/lib/prisma"
+import { checkOrgAccess, checkOrgOwner } from "@/lib/auth-utils"
+import { updateOutlineSchema } from "@/lib/validation"
+import {
+  unauthorizedResponse,
+  badRequestResponse,
+  forbiddenResponse,
+  notFoundResponse,
+  successResponse,
+  handleApiError,
+} from "@/lib/api-response"
 
 // PATCH /api/outlines/[id]
-const updateSchema = z.object({
-  orgId: z.string(),
-  header: z.string().min(1).optional(),
-  sectionType: z
-    .enum([
-      "Table of Contents",
-      "Executive Summary",
-      "Technical Approach",
-      "Design",
-      "Capabilities",
-      "Focus Document",
-      "Narrative",
-    ])
-    .optional(),
-  status: z.enum(["Pending", "In-Progress", "Completed"]).optional(),
-  target: z.number().optional(),
-  limit: z.number().optional(),
-  reviewer: z.enum(["Assim", "Bini", "Mami"]).optional(),
-})
-
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await getSessionUser(request)
     if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const data = updateSchema.parse(await request.json())
-
-    const access = await checkOrgAccess(user.id, data.orgId)
-    if (!access) {
-      return Response.json({ error: "Access denied" }, { status: 403 })
-    }
-
-    // Only organization owners can update outlines
-    const isOwner = await checkOrgOwner(user.id, data.orgId)
-    if (!isOwner) {
-      return Response.json({ error: "Only organization owners can update outlines" }, { status: 403 })
+      return unauthorizedResponse()
     }
 
     const { id } = await params
-    const outline = await prisma.outline.update({
+    const body = await request.json()
+    const data = updateOutlineSchema.parse(body)
+
+    // Verify outline exists and get its organization
+    const existingOutline = await prisma.outline.findUnique({
       where: { id },
-      data: {
-        ...(data.header && { header: data.header }),
-        ...(data.sectionType && { sectionType: data.sectionType }),
-        ...(data.status && { status: data.status }),
-        ...(data.target !== undefined && { target: data.target }),
-        ...(data.limit !== undefined && { limit: data.limit }),
-        ...(data.reviewer && { reviewer: data.reviewer }),
-      },
+      select: { organizationId: true },
     })
 
-    return Response.json({ outline })
+    if (!existingOutline) {
+      return notFoundResponse("Outline")
+    }
+
+    // Verify the orgId in request matches the outline's organization
+    if (data.orgId !== existingOutline.organizationId) {
+      return badRequestResponse("Organization ID mismatch", "ORG_ID_MISMATCH")
+    }
+
+    const access = await checkOrgAccess(user.id, data.orgId)
+    if (!access.hasAccess) {
+      return forbiddenResponse("You do not have access to this organization")
+    }
+
+    // Only organization owners can update outlines
+    if (!access.isOwner) {
+      return forbiddenResponse("Only organization owners can update outlines")
+    }
+
+    // Build update data object
+    const updateData: {
+      header?: string
+      sectionType?: string
+      status?: string
+      target?: number
+      limit?: number
+      reviewer?: string
+    } = {}
+
+    if (data.header !== undefined) updateData.header = data.header
+    if (data.sectionType !== undefined) updateData.sectionType = data.sectionType
+    if (data.status !== undefined) updateData.status = data.status
+    if (data.target !== undefined) updateData.target = data.target
+    if (data.limit !== undefined) updateData.limit = data.limit
+    if (data.reviewer !== undefined) updateData.reviewer = data.reviewer
+
+    if (Object.keys(updateData).length === 0) {
+      return badRequestResponse("No fields to update", "NO_UPDATE_FIELDS")
+    }
+
+    const outline = await prisma.outline.update({
+      where: { id },
+      data: updateData,
+    })
+
+    return successResponse({ outline }, "Outline updated successfully")
   } catch (error) {
-    console.error("PATCH /api/outlines/[id] error:", error)
-    return Response.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error)
   }
 }
 
@@ -89,35 +85,49 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   try {
     const user = await getSessionUser(request)
     if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
+      return unauthorizedResponse()
     }
 
     const { searchParams } = new URL(request.url)
     const orgId = searchParams.get("orgId")
 
     if (!orgId) {
-      return Response.json({ error: "orgId is required" }, { status: 400 })
-    }
-
-    const access = await checkOrgAccess(user.id, orgId)
-    if (!access) {
-      return Response.json({ error: "Access denied" }, { status: 403 })
-    }
-
-    // Only organization owners can delete outlines
-    const isOwner = await checkOrgOwner(user.id, orgId)
-    if (!isOwner) {
-      return Response.json({ error: "Only organization owners can delete outlines" }, { status: 403 })
+      return badRequestResponse("orgId is required", "MISSING_ORG_ID")
     }
 
     const { id } = await params
+
+    // Verify outline exists and get its organization
+    const existingOutline = await prisma.outline.findUnique({
+      where: { id },
+      select: { organizationId: true },
+    })
+
+    if (!existingOutline) {
+      return notFoundResponse("Outline")
+    }
+
+    // Verify the orgId in request matches the outline's organization
+    if (orgId !== existingOutline.organizationId) {
+      return badRequestResponse("Organization ID mismatch", "ORG_ID_MISMATCH")
+    }
+
+    const access = await checkOrgAccess(user.id, orgId)
+    if (!access.hasAccess) {
+      return forbiddenResponse("You do not have access to this organization")
+    }
+
+    // Only organization owners can delete outlines
+    if (!access.isOwner) {
+      return forbiddenResponse("Only organization owners can delete outlines")
+    }
+
     await prisma.outline.delete({
       where: { id },
     })
 
-    return Response.json({ success: true })
+    return successResponse(undefined, "Outline deleted successfully")
   } catch (error) {
-    console.error("DELETE /api/outlines/[id] error:", error)
-    return Response.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error)
   }
 }

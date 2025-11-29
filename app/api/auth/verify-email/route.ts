@@ -1,11 +1,6 @@
-import { PrismaClient } from "@prisma/client"
-import { z } from "zod"
-
-const prisma = new PrismaClient()
-
-const verifyEmailSchema = z.object({
-  token: z.string(),
-})
+import { prisma } from "@/lib/prisma"
+import { verifyEmailSchema } from "@/lib/validation"
+import { badRequestResponse, successResponse, handleApiError } from "@/lib/api-response"
 
 export async function POST(request: Request) {
   try {
@@ -25,7 +20,7 @@ export async function POST(request: Request) {
     })
 
     if (!verification) {
-      return Response.json({ error: "Invalid or expired verification token" }, { status: 400 })
+      return badRequestResponse("Invalid or expired verification token", "INVALID_TOKEN")
     }
 
     // Check if token is expired
@@ -33,7 +28,7 @@ export async function POST(request: Request) {
       await prisma.verification.delete({
         where: { id: verification.id },
       })
-      return Response.json({ error: "Verification token has expired" }, { status: 400 })
+      return badRequestResponse("Verification token has expired. Please request a new verification email.", "TOKEN_EXPIRED")
     }
 
     // Update user email as verified
@@ -49,13 +44,9 @@ export async function POST(request: Request) {
       where: { id: verification.id },
     })
 
-    return Response.json({ success: true, message: "Email verified successfully" })
+    return successResponse(undefined, "Email verified successfully")
   } catch (error) {
-    console.error("POST /api/auth/verify-email error:", error)
-    if (error instanceof z.ZodError) {
-      return Response.json({ error: error.errors[0].message }, { status: 400 })
-    }
-    return Response.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error)
   }
 }
 

@@ -83,18 +83,21 @@ export default function TeamPage() {
       const response = await fetch(`/api/org/members?orgId=${orgId}`)
       if (response.ok) {
         const data = await response.json()
-        setMembers(data.members)
+        // Handle new API response format: { success: true, data: { members: [...], organization: {...} } }
+        const responseData = data.success && data.data ? data.data : data
+        const membersList = responseData.members || []
+        setMembers(membersList)
         
         // Set organization from API response
-        if (data.organization) {
+        if (responseData.organization) {
           setOrganization({
-            id: data.organization.id,
-            name: data.organization.name,
-            ownerId: data.organization.ownerId,
+            id: responseData.organization.id,
+            name: responseData.organization.name,
+            ownerId: responseData.organization.ownerId,
           })
         } else {
           // Fallback: Find the owner from the members list
-          const ownerMember = data.members.find((m: TeamMember) => m.role === "owner")
+          const ownerMember = membersList.find((m: TeamMember) => m.role === "owner")
           const ownerId = ownerMember?.user.id || ""
           
           setOrganization({
@@ -158,16 +161,25 @@ export default function TeamPage() {
 
       if (response.ok) {
         const data = await response.json()
-        setMembers([...members, data.member])
-        setInviteEmail("")
-        setIsOpen(false)
-        toast({
-          title: "Success",
-          description: "Member invited successfully",
-        })
+        // Handle new API response format: { success: true, data: { member: {...} } }
+        const member = data.success && data.data?.member 
+          ? data.data.member 
+          : data.member
+        
+        if (member) {
+          setMembers([...members, member])
+          setInviteEmail("")
+          setIsOpen(false)
+          toast({
+            title: "Success",
+            description: data.message || "Member invited successfully",
+          })
+        } else {
+          throw new Error("Member data not found in response")
+        }
       } else {
         const error = await response.json()
-        throw new Error(error.error || "Failed to invite member")
+        throw new Error(error.message || error.error || "Failed to invite member")
       }
     } catch (error) {
       console.error("Error inviting member:", error)
@@ -299,7 +311,7 @@ export default function TeamPage() {
             <p className="text-muted-foreground">Loading team members...</p>
           </div>
         </div>
-      ) : members.length === 0 ? (
+      ) : !members || members.length === 0 ? (
         <div className="rounded-xl border-2 border-dashed p-16 text-center bg-muted/20">
           <div className="max-w-md mx-auto space-y-4">
             <div className="inline-block p-4 rounded-full bg-primary/10">

@@ -1,16 +1,10 @@
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
+import { sendVerificationSchema } from "@/lib/validation"
 import { randomBytes } from "crypto"
 import { sendEmail } from "@/lib/email"
 import { getEmailVerificationTemplate } from "@/lib/email-templates"
 import { validateEmailFormat, canReceiveEmails, getEmailErrorMessage } from "@/lib/email-validation"
-import { z } from "zod"
-
-const prisma = new PrismaClient()
-
-const sendVerificationSchema = z.object({
-  userId: z.string(),
-  email: z.string().email(),
-})
+import { badRequestResponse, notFoundResponse, successResponse, handleApiError } from "@/lib/api-response"
 
 export async function POST(request: Request) {
   try {
@@ -22,37 +16,33 @@ export async function POST(request: Request) {
     })
 
     if (!dbUser) {
-      return Response.json({ error: "User not found" }, { status: 404 })
+      return notFoundResponse("User")
     }
 
     if (dbUser.email !== data.email) {
-      return Response.json({ error: "Email mismatch" }, { status: 400 })
+      return badRequestResponse("Email mismatch", "EMAIL_MISMATCH")
     }
 
     // Email validation is now done in sendEmail() function
     // But we can still do a quick check here for better error messages
     const emailValidation = validateEmailFormat(data.email)
     if (!emailValidation.valid) {
-      return Response.json({
-        error: "Email is not valid",
-        errorCode: emailValidation.errorCode,
-        success: false,
-        message: `The email address "${data.email}" is not valid. ${getEmailErrorMessage(emailValidation)} Please use a valid email address.`,
-      }, { status: 400 })
+      return badRequestResponse(
+        `The email address "${data.email}" is not valid. ${getEmailErrorMessage(emailValidation)}`,
+        emailValidation.errorCode
+      )
     }
 
     const emailReceivable = canReceiveEmails(data.email)
     if (!emailReceivable.valid) {
-      return Response.json({
-        error: "Email cannot receive messages",
-        errorCode: emailReceivable.errorCode,
-        success: false,
-        message: `The email address "${data.email}" cannot receive emails. ${getEmailErrorMessage(emailReceivable)} Please use a valid email address.`,
-      }, { status: 400 })
+      return badRequestResponse(
+        `The email address "${data.email}" cannot receive emails. ${getEmailErrorMessage(emailReceivable)}`,
+        emailReceivable.errorCode
+      )
     }
 
     if (dbUser.emailVerified) {
-      return Response.json({ error: "Email is already verified" }, { status: 400 })
+      return badRequestResponse("Email is already verified", "ALREADY_VERIFIED")
     }
 
     // Generate verification token
@@ -107,11 +97,10 @@ Thanks.`
           })
           
           console.log("✅ Verification email sent successfully:", emailResult)
-          return Response.json({ 
-            success: true, 
-            message: "Verification email sent successfully. Please check your inbox (and spam folder).",
-            emailResult,
-          })
+          return successResponse(
+            undefined,
+            "Verification email sent successfully. Please check your inbox (and spam folder)."
+          )
     } catch (emailError: any) {
       console.error("❌ Failed to send verification email to:", data.email, {
         error: emailError.message,
@@ -147,21 +136,12 @@ Thanks.`
         userMessage = `The email server rejected the message. This might mean the email address "${data.email}" is invalid or the server is blocking it. Please check your email address.`
       }
 
-      return Response.json({
-        error: errorMessage,
-        errorCode,
-        success: false,
-        retryable: true,
-        message: userMessage,
-        details: process.env.NODE_ENV === "development" ? emailError.message : undefined,
-      }, { status: 500 })
+      return handleApiError(
+        new Error(userMessage) as Error & { code?: string; errorCode?: string }
+      )
     }
   } catch (error) {
-    console.error("POST /api/auth/send-verification-signup error:", error)
-    if (error instanceof z.ZodError) {
-      return Response.json({ error: error.errors[0].message }, { status: 400 })
-    }
-    return Response.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error)
   }
 }
 

@@ -103,13 +103,19 @@ export default function OutlineTablePage() {
       const response = await fetch(`/api/outlines?orgId=${orgId}`)
       if (response.ok) {
         const data = await response.json()
-        setOutlines(data.outlines)
+        // Handle new API response format: { success: true, data: { outlines: [...] } }
+        const outlines = data.success && data.data?.outlines 
+          ? data.data.outlines 
+          : data.outlines || []
+        setOutlines(outlines)
       } else {
+        const errorData = await response.json()
         toast({
           title: "Error",
-          description: "Failed to fetch outlines",
+          description: errorData.message || errorData.error || "Failed to fetch outlines",
           variant: "destructive",
         })
+        setOutlines([]) // Set empty array on error
       }
     } catch (error) {
       console.error("Error fetching outlines:", error)
@@ -118,6 +124,7 @@ export default function OutlineTablePage() {
         description: "An error occurred while fetching outlines",
         variant: "destructive",
       })
+      setOutlines([]) // Set empty array on error
     } finally {
       setIsLoading(false)
     }
@@ -182,13 +189,23 @@ export default function OutlineTablePage() {
 
         if (response.ok) {
           const data = await response.json()
-          setOutlines(outlines.map((o) => (o.id === editingId ? data.outline : o)))
-          toast({
-            title: "Success",
-            description: "Outline updated successfully",
-          })
+          // Handle new API response format: { success: true, data: { outline: {...} } }
+          const outline = data.success && data.data?.outline 
+            ? data.data.outline 
+            : data.outline
+          
+          if (outline) {
+            setOutlines(outlines.map((o) => (o.id === editingId ? outline : o)))
+            toast({
+              title: "Success",
+              description: data.message || "Outline updated successfully",
+            })
+          } else {
+            throw new Error("Outline data not found in response")
+          }
         } else {
-          throw new Error("Failed to update outline")
+          const errorData = await response.json()
+          throw new Error(errorData.message || errorData.error || "Failed to update outline")
         }
       } else {
         // Create
@@ -203,13 +220,23 @@ export default function OutlineTablePage() {
 
         if (response.ok) {
           const data = await response.json()
-          setOutlines([...outlines, data.outline])
-          toast({
-            title: "Success",
-            description: "Outline created successfully",
-          })
+          // Handle new API response format: { success: true, data: { outline: {...} } }
+          const outline = data.success && data.data?.outline 
+            ? data.data.outline 
+            : data.outline
+          
+          if (outline) {
+            setOutlines([...outlines, outline])
+            toast({
+              title: "Success",
+              description: data.message || "Outline created successfully",
+            })
+          } else {
+            throw new Error("Outline data not found in response")
+          }
         } else {
-          throw new Error("Failed to create outline")
+          const errorData = await response.json()
+          throw new Error(errorData.message || errorData.error || "Failed to create outline")
         }
       }
 

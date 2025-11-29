@@ -46,19 +46,25 @@ export default function WorkspacePage() {
   const fetchOrganizations = async () => {
     setIsLoading(true)
     try {
-      const response =await fetch("/api/org/list", {
-          method: "GET",
-          credentials: "include",
-        })
+      const response = await fetch("/api/org/list", {
+        method: "GET",
+        credentials: "include",
+      })
       if (response.ok) {
         const data = await response.json()
-        setOrganizations(data.organizations)
+        // Handle new API response format: { success: true, data: { organizations: [...] } }
+        const organizations = data.success && data.data?.organizations 
+          ? data.data.organizations 
+          : data.organizations || []
+        setOrganizations(organizations)
       } else {
+        const errorData = await response.json()
         toast({
           title: "Error",
-          description: "Failed to fetch organizations",
+          description: errorData.message || errorData.error || "Failed to fetch organizations",
           variant: "destructive",
         })
+        setOrganizations([]) // Set empty array on error to prevent undefined
       }
     } catch (error) {
       console.error("Error fetching organizations:", error)
@@ -67,6 +73,7 @@ export default function WorkspacePage() {
         description: "An error occurred while fetching organizations",
         variant: "destructive",
       })
+      setOrganizations([]) // Set empty array on error to prevent undefined
     } finally {
       setIsLoading(false)
     }
@@ -93,8 +100,17 @@ export default function WorkspacePage() {
 
       if (response.ok) {
         const data = await response.json()
+        // Handle new API response format: { success: true, data: { organization: {...} } }
+        const organization = data.success && data.data?.organization 
+          ? data.data.organization 
+          : data.organization
+        
+        if (!organization) {
+          throw new Error("Organization data not found in response")
+        }
+        
         const newOrg: Organization = {
-          ...data.organization,
+          ...organization,
           role: "owner",
         }
         setOrganizations([...organizations, newOrg])
@@ -102,13 +118,13 @@ export default function WorkspacePage() {
         setIsCreateDialogOpen(false)
         toast({
           title: "Success",
-          description: "Organization created successfully",
+          description: data.message || "Organization created successfully",
         })
         // Optionally navigate to the new organization
-        router.push(`/workspace/${data.organization.id}`)
+        router.push(`/workspace/${organization.id}`)
       } else {
         const error = await response.json()
-        throw new Error(error.error || "Failed to create organization")
+        throw new Error(error.message || error.error || "Failed to create organization")
       }
     } catch (error) {
       console.error("Error creating organization:", error)
@@ -143,6 +159,11 @@ export default function WorkspacePage() {
       if (response.ok) {
         const data = await response.json()
         
+        // Handle new API response format: { success: true, data: { organization: {...} }, message: "..." }
+        const organization = data.success && data.data?.organization 
+          ? data.data.organization 
+          : data.organization
+        
         if (data.pending) {
           toast({
             title: "Request Pending",
@@ -153,10 +174,10 @@ export default function WorkspacePage() {
             title: "Request Sent",
             description: data.message || "Join request sent. The organization owner will be notified.",
           })
-        } else {
+        } else if (organization) {
           // Direct join (if owner accepts immediately)
           const newOrg: Organization = {
-            ...data.organization,
+            ...organization,
             role: "member",
           }
           setOrganizations([...organizations, newOrg])
@@ -164,14 +185,14 @@ export default function WorkspacePage() {
             title: "Success",
             description: "Successfully joined organization",
           })
-          router.push(`/workspace/${data.organization.id}`)
+          router.push(`/workspace/${organization.id}`)
         }
         
         setJoinOrgSlug("")
         setIsJoinDialogOpen(false)
       } else {
         const error = await response.json()
-        throw new Error(error.error || "Failed to join organization")
+        throw new Error(error.message || error.error || "Failed to join organization")
       }
     } catch (error) {
       console.error("Error joining organization:", error)
@@ -290,7 +311,7 @@ export default function WorkspacePage() {
               <p className="text-muted-foreground">Loading organizations...</p>
             </div>
           </div>
-        ) : organizations.length === 0 ? (
+        ) : !organizations || organizations.length === 0 ? (
           <Card className="border-2 shadow-xl">
             <CardContent className="flex flex-col items-center justify-center py-16">
               <div className="p-4 rounded-full bg-primary/10 mb-4">
