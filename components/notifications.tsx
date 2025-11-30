@@ -339,6 +339,8 @@ export function Notifications() {
         return <CheckCircle2 className="h-4 w-4 text-green-500" />
       case "invitation_rejected":
         return <XCircle className="h-4 w-4 text-destructive" />
+      case "organization_deleted":
+        return <XCircle className="h-4 w-4 text-destructive" />
       default:
         return <Bell className="h-4 w-4" />
     }
@@ -357,6 +359,8 @@ export function Notifications() {
       case "invitation_accepted":
         return "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20"
       case "invitation_rejected":
+        return "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
+      case "organization_deleted":
         return "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
       default:
         return "bg-primary/10 text-primary border-primary/20"

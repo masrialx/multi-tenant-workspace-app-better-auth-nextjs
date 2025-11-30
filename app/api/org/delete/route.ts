@@ -119,6 +119,114 @@ export async function DELETE(request: Request) {
       return badRequestResponse("Incorrect password. Please try again.", "INVALID_PASSWORD")
     }
 
+    // Get all organization members (including owner) before deletion
+    const allMembers = await prisma.organizationMember.findMany({
+      where: { organizationId: data.orgId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+          },
+        },
+      },
+    })
+
+    // Get owner details
+    const ownerUser = await prisma.user.findUnique({
+      where: { id: org.ownerId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+      },
+    })
+
+    // Create notifications for all members (including owner)
+    const userIdsToNotify = new Set<string>()
+    
+    // Add owner
+    if (ownerUser) {
+      userIdsToNotify.add(ownerUser.id)
+    }
+    
+    // Add all members
+    allMembers.forEach((member) => {
+      userIdsToNotify.add(member.userId)
+    })
+
+    // Create notifications for each user
+    const notificationPromises = Array.from(userIdsToNotify).map((userId) =>
+      prisma.notification.create({
+        data: {
+          type: "organization_deleted",
+          title: "Organization Deleted",
+          message: `The organization "${org.name}" has been deleted.`,
+          userId: userId,
+          metadata: JSON.stringify({
+            organizationId: org.id,
+            organizationName: org.name,
+            deletedBy: user.id,
+            deletedByName: user.name || user.email,
+          }),
+        },
+      })
+    )
+
+    await Promise.all(notificationPromises)
+
+    // Send email notifications to all members and owner
+    const { sendEmail } = await import("@/lib/email")
+    const emailPromises: Promise<void>[] = []
+
+    // Email to owner
+    if (ownerUser && ownerUser.email) {
+      emailPromises.push(
+        sendEmail({
+          to: ownerUser.email,
+          subject: `Organization "${org.name}" Deleted`,
+          text: `The organization "${org.name}" has been deleted successfully.`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>Organization Deleted</h2>
+              <p>The organization <strong>"${org.name}"</strong> has been deleted successfully.</p>
+              <p>All associated data, members, and content have been removed.</p>
+            </div>
+          `,
+        }).catch((error) => {
+          console.error(`Failed to send deletion email to owner ${ownerUser.email}:`, error)
+        })
+      )
+    }
+
+    // Email to all members
+    allMembers.forEach((member) => {
+      if (member.user.email && member.userId !== org.ownerId) {
+        emailPromises.push(
+          sendEmail({
+            to: member.user.email,
+            subject: `Organization "${org.name}" Deleted`,
+            text: `The organization "${org.name}" that you were a member of has been deleted.`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>Organization Deleted</h2>
+                <p>The organization <strong>"${org.name}"</strong> that you were a member of has been deleted by the owner.</p>
+                <p>You no longer have access to this organization or its content.</p>
+              </div>
+            `,
+          }).catch((error) => {
+            console.error(`Failed to send deletion email to member ${member.user.email}:`, error)
+          })
+        )
+      }
+    })
+
+    // Send emails in background (don't wait for them)
+    Promise.all(emailPromises).catch((error) => {
+      console.error("Error sending deletion emails:", error)
+    })
+
     // Delete the organization (cascade will handle related records)
     await prisma.organization.delete({
       where: { id: data.orgId },
