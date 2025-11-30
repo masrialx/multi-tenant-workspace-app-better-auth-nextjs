@@ -32,10 +32,33 @@ export async function POST(request: Request) {
       return badRequestResponse("Reset token has expired. Please request a new password reset.", "TOKEN_EXPIRED")
     }
 
-    // Hash new password
+    // Hash new password using bcryptjs (matching better-auth configuration)
     const hashedPassword = await hash(data.password, 10)
 
-    // Update user password
+    // Find the user's account (better-auth stores password in Account table, not User table)
+    const account = await prisma.account.findFirst({
+      where: {
+        userId: verification.userId,
+        providerId: "credential", // better-auth uses "credential" for email/password accounts
+      },
+    })
+
+    if (!account) {
+      return badRequestResponse(
+        "Account not found. Please contact support.",
+        "ACCOUNT_NOT_FOUND"
+      )
+    }
+
+    // Update password in Account table (this is what better-auth uses for authentication)
+    await prisma.account.update({
+      where: { id: account.id },
+      data: {
+        password: hashedPassword,
+      },
+    })
+
+    // Also update User.password for consistency (optional, but good for data integrity)
     await prisma.user.update({
       where: { id: verification.userId },
       data: {

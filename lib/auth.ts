@@ -6,6 +6,7 @@ import type { NextRequest } from "next/server"
 import { prisma } from "./prisma"
 import { sendEmail } from "./email"
 import { getOrganizationInvitationTemplate } from "./email-templates"
+import { hash, compare } from "bcryptjs"
 
 
 export const auth = betterAuth({
@@ -16,6 +17,20 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
   emailAndPassword: {
     enabled: true,
+    // Configure password hasher to use bcryptjs
+    password: {
+      hash: async (password: string) => {
+        return await hash(password, 10)
+      },
+      verify: async ({ password, hash: storedHash }: { password: string; hash: string }) => {
+        try {
+          return await compare(password, storedHash)
+        } catch (error) {
+          console.error("Password verification error:", error)
+          return false
+        }
+      },
+    },
   },
   plugins: [
     organization({
