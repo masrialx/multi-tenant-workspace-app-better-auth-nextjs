@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useSession } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,6 +26,7 @@ interface Notification {
 }
 
 export function Notifications() {
+  const router = useRouter()
   const { data: session } = useSession()
   const { toast } = useToast()
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -34,23 +36,92 @@ export function Notifications() {
 
   useEffect(() => {
     if (session?.user) {
+      // Fetch immediately when component mounts or session changes
       fetchNotifications()
       // Poll for new notifications every 30 seconds
-      const interval = setInterval(fetchNotifications, 30000)
+      const interval = setInterval(() => {
+        fetchNotifications()
+      }, 30000)
       return () => clearInterval(interval)
+    } else {
+      // Clear notifications when user logs out
+      setNotifications([])
+      setUnreadCount(0)
     }
-  }, [session])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id])
+
+  // Fetch notifications when popover opens
+  useEffect(() => {
+    if (isOpen && session?.user) {
+      fetchNotifications()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, session?.user?.id])
 
   const fetchNotifications = async () => {
     try {
-      const response = await fetch("/api/notifications")
+      setIsLoading(true)
+      const response = await fetch("/api/notifications", {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+      
       if (response.ok) {
-        const data = await response.json()
-        setNotifications(data.notifications || [])
-        setUnreadCount(data.unreadCount || 0)
+        const result = await response.json()
+        
+        // Handle API response format: { success: true, data: { notifications: [...], unreadCount: 0 } }
+        let notifications: Notification[] = []
+        let unreadCount = 0
+        
+        if (result.success && result.data) {
+          // New API format
+          notifications = Array.isArray(result.data.notifications) ? result.data.notifications : []
+          unreadCount = typeof result.data.unreadCount === "number" ? result.data.unreadCount : 0
+        } else if (result.notifications) {
+          // Fallback: old format
+          notifications = Array.isArray(result.notifications) ? result.notifications : []
+          unreadCount = typeof result.unreadCount === "number" ? result.unreadCount : 0
+        }
+        
+        // Ensure all notifications have required fields
+        notifications = notifications.map((n: any) => ({
+          id: n.id || "",
+          type: n.type || "",
+          title: n.title || "",
+          message: n.message || "",
+          read: typeof n.read === "boolean" ? n.read : false,
+          metadata: n.metadata || null,
+          createdAt: n.createdAt || new Date().toISOString(),
+        }))
+        
+        // Calculate unread count if not provided
+        if (unreadCount === 0 && notifications.length > 0) {
+          unreadCount = notifications.filter((n) => !n.read).length
+        }
+        
+        console.log("📬 Notifications fetched:", {
+          count: notifications.length,
+          unread: unreadCount,
+          types: notifications.map((n) => n.type),
+        })
+        
+        setNotifications(notifications)
+        setUnreadCount(unreadCount)
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("❌ Failed to fetch notifications:", {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+        })
       }
     } catch (error) {
-      console.error("Error fetching notifications:", error)
+      console.error("❌ Error fetching notifications:", error)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -111,11 +182,28 @@ export function Notifications() {
         // Refresh notifications
         fetchNotifications()
       } else {
-        toast({
-          title: "Error",
-          description: data.error || `Failed to ${action} request`,
-          variant: "destructive",
-        })
+        const errorMessage = data.error || data.message || `Failed to ${action} request`
+        
+        // Check if the error indicates the request was already processed
+        if (
+          errorMessage.includes("already been processed") ||
+          errorMessage.includes("already processed") ||
+          errorMessage.includes("has already been processed")
+        ) {
+          toast({
+            title: "Request Already Processed",
+            description: "This join request has already been processed.",
+            variant: "default",
+          })
+          // Navigate to home page
+          router.push("/workspace")
+        } else {
+          toast({
+            title: "Error",
+            description: errorMessage,
+            variant: "destructive",
+          })
+        }
       }
     } catch (error) {
       toast({
@@ -284,7 +372,6 @@ export function Notifications() {
           className="relative h-9 w-9 hover:bg-accent transition-all duration-200"
           onClick={() => {
             setIsOpen(true)
-            fetchNotifications()
           }}
         >
           <Bell className="h-5 w-5 transition-transform duration-200 hover:scale-110" />
@@ -366,7 +453,15 @@ export function Notifications() {
                   isInvitationExpired = new Date() > expiresAt
                 }
                 
+                // Check if join request is expired
+                let isJoinRequestExpired = false
+                if (notification.type === "join_request" && metadata.expiresAt) {
+                  const expiresAt = new Date(metadata.expiresAt)
+                  isJoinRequestExpired = new Date() > expiresAt
+                }
+                
                 const isInvitation = notification.type === "invitation" && !notification.read && metadata.invitationId && !isInvitationExpired
+                const isValidJoinRequest = isJoinRequest && !notification.read && !isJoinRequestExpired
 
                 return (
                   <div
@@ -425,6 +520,15 @@ export function Notifications() {
                                 ) : null}
                               </p>
                             )}
+                            {notification.type === "join_request" && metadata.expiresAt && (
+                              <p className="text-xs text-muted-foreground/70 mt-1">
+                                {isJoinRequestExpired ? (
+                                  <span className="text-destructive">This join request has expired</span>
+                                ) : metadata.daysUntilExpiration ? (
+                                  <span>Expires in {metadata.daysUntilExpiration} day{metadata.daysUntilExpiration !== 1 ? 's' : ''}</span>
+                                ) : null}
+                              </p>
+                            )}
                           </div>
                         </div>
 
@@ -436,7 +540,7 @@ export function Notifications() {
                             })}
                           </p>
                           
-                          {isJoinRequest && !notification.read && (
+                          {isValidJoinRequest && (
                             <div className="flex items-center gap-2 ml-2">
                               <Button
                                 size="sm"
@@ -504,6 +608,11 @@ export function Notifications() {
                             </div>
                           )}
                           {notification.type === "invitation" && isInvitationExpired && (
+                            <div className="flex items-center gap-2 ml-2">
+                              <span className="text-xs text-destructive font-medium">Expired</span>
+                            </div>
+                          )}
+                          {notification.type === "join_request" && isJoinRequestExpired && (
                             <div className="flex items-center gap-2 ml-2">
                               <span className="text-xs text-destructive font-medium">Expired</span>
                             </div>

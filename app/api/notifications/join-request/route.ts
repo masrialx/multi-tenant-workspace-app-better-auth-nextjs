@@ -42,12 +42,18 @@ export async function POST(request: Request) {
       return badRequestResponse("Invalid notification type", "INVALID_NOTIFICATION_TYPE")
     }
 
+    // Check if already processed (read)
+    if (notification.read) {
+      return badRequestResponse("This join request has already been processed", "ALREADY_PROCESSED")
+    }
+
     // Parse metadata
     let metadata: {
       organizationId?: string
       requestingUserId?: string
       requestingUserName?: string
       organizationName?: string
+      expiresAt?: string
     }
     try {
       metadata = JSON.parse(notification.metadata || "{}")
@@ -55,10 +61,26 @@ export async function POST(request: Request) {
       return badRequestResponse("Invalid notification metadata", "INVALID_METADATA")
     }
 
-    const { organizationId, requestingUserId, requestingUserName, organizationName } = metadata
+    const { organizationId, requestingUserId, requestingUserName, organizationName, expiresAt } = metadata
 
     if (!organizationId || !requestingUserId) {
       return badRequestResponse("Invalid notification metadata", "INVALID_METADATA")
+    }
+
+    // Check expiration
+    if (expiresAt) {
+      const expirationDate = new Date(expiresAt)
+      if (new Date() > expirationDate) {
+        // Mark as read and return expired message
+        await prisma.notification.update({
+          where: { id: data.notificationId },
+          data: { read: true },
+        })
+        return badRequestResponse(
+          `This join request has expired. It was valid until ${expirationDate.toLocaleDateString()}.`,
+          "JOIN_REQUEST_EXPIRED"
+        )
+      }
     }
 
     // Verify user is the owner of the organization

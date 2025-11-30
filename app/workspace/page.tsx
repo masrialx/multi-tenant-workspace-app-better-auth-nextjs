@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import Link from "next/link"
-import { LogOut, Building2, Plus, Users, Sparkles, Loader2 } from "lucide-react"
+import { LogOut, Building2, Plus, Users, Sparkles, Loader2, Trash2 } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { EmailVerificationBanner } from "@/components/email-verification-banner"
 import { Notifications } from "@/components/notifications"
@@ -36,6 +38,10 @@ export default function WorkspacePage() {
   const [isJoining, setIsJoining] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isProcessingInvitation, setIsProcessingInvitation] = useState(false)
+  const [deleteOrgId, setDeleteOrgId] = useState<string | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [deletePassword, setDeletePassword] = useState("")
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Handle invitation from email link
   useEffect(() => {
@@ -47,6 +53,42 @@ export default function WorkspacePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, isPending, searchParams])
+
+  // Handle error and success messages from query parameters (e.g., from join request redirects)
+  useEffect(() => {
+    if (!searchParams) return
+    
+    const error = searchParams.get("error")
+    const message = searchParams.get("message")
+    
+    if (error) {
+      toast({
+        title: "Error",
+        description: error,
+        variant: "destructive",
+      })
+      // Clean up URL by removing error parameter
+      const newSearchParams = new URLSearchParams(searchParams.toString())
+      newSearchParams.delete("error")
+      const newUrl = newSearchParams.toString() 
+        ? `${window.location.pathname}?${newSearchParams.toString()}`
+        : window.location.pathname
+      router.replace(newUrl)
+    } else if (message) {
+      toast({
+        title: "Success",
+        description: message,
+      })
+      // Clean up URL by removing message parameter
+      const newSearchParams = new URLSearchParams(searchParams.toString())
+      newSearchParams.delete("message")
+      const newUrl = newSearchParams.toString() 
+        ? `${window.location.pathname}?${newSearchParams.toString()}`
+        : window.location.pathname
+      router.replace(newUrl)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -283,6 +325,71 @@ export default function WorkspacePage() {
     }
   }
 
+  const handleDeleteClick = (orgId: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDeleteOrgId(orgId)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteOrgId || !deletePassword.trim()) {
+      toast({
+        title: "Error",
+        description: "Password is required",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsDeleting(true)
+    try {
+      const response = await fetch("/api/org/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId: deleteOrgId,
+          password: deletePassword,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: data.message || "Organization deleted successfully",
+        })
+        setIsDeleteDialogOpen(false)
+        setDeleteOrgId(null)
+        setDeletePassword("")
+        // Refresh organizations list
+        fetchOrganizations()
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || data.message || "Failed to delete organization",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error deleting organization:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleDeleteCancel = () => {
+    setIsDeleteDialogOpen(false)
+    setDeleteOrgId(null)
+    setDeletePassword("")
+  }
+
   if (isPending) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20">
@@ -395,13 +502,24 @@ export default function WorkspacePage() {
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {organizations.map((org) => (
-              <Link key={org.id} href={`/workspace/${org.id}`}>
-                <Card className="cursor-pointer hover:shadow-xl transition-all duration-300 border-2 hover:border-primary/20 h-full group">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                        <Building2 className="h-5 w-5 text-primary" />
-                      </div>
+              <Card key={org.id} className="hover:shadow-xl transition-all duration-300 border-2 hover:border-primary/20 h-full group relative">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                      <Building2 className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {org.role === "owner" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={(e) => handleDeleteClick(org.id, e)}
+                          title="Delete Organization"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                       <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
                         org.role === "owner" 
                           ? "bg-primary/10 text-primary border border-primary/20" 
@@ -410,20 +528,22 @@ export default function WorkspacePage() {
                         {org.role === "owner" ? "Owner" : "Member"}
                       </span>
                     </div>
-                    <CardTitle className="text-xl group-hover:text-primary transition-colors">
-                      {org.name}
-                    </CardTitle>
-                    <CardDescription className="flex items-center gap-1.5 mt-1">
-                      <span className="text-xs font-mono">{org.slug}</span>
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
+                  </div>
+                  <CardTitle className="text-xl group-hover:text-primary transition-colors">
+                    {org.name}
+                  </CardTitle>
+                  <CardDescription className="flex items-center gap-1.5 mt-1">
+                    <span className="text-xs font-mono">{org.slug}</span>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Link href={`/workspace/${org.id}`}>
                     <Button variant="ghost" className="w-full group-hover:bg-primary/10 transition-colors">
                       Open Workspace
                     </Button>
-                  </CardContent>
-                </Card>
-              </Link>
+                  </Link>
+                </CardContent>
+              </Card>
             ))}
           </div>
         )}
@@ -520,6 +640,55 @@ export default function WorkspacePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Organization Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Organization</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this organization? This action cannot be undone. All data, members, and content associated with this organization will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="delete-password">Enter your password to confirm</Label>
+              <Input
+                id="delete-password"
+                type="password"
+                placeholder="Enter your password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                disabled={isDeleting}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && deletePassword.trim()) {
+                    handleDeleteConfirm()
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleDeleteCancel} disabled={isDeleting}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting || !deletePassword.trim()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Organization"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -248,6 +248,157 @@ If you believe this is an error, please contact the organization owner directly.
   })
 }
 
+export function getJoinRequestNotificationTemplate(
+  organizationName: string,
+  requesterName: string,
+  requesterEmail: string,
+  acceptLink: string,
+  rejectLink: string,
+  workspaceUrl: string = "http://localhost:3000/workspace",
+  expiresIn: string = "7 days"
+): string {
+  // Custom template with only Accept button
+  const baseUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000"
+  
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Join Request</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: #1e293b;
+      background-color: #f1f5f9;
+      padding: 0;
+      margin: 0;
+    }
+    .email-wrapper {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+    }
+    .email-header {
+      background: linear-gradient(135deg, #3b82f6 0%, #3b82f6dd 100%);
+      padding: 40px 30px;
+      text-align: center;
+      border-radius: 8px 8px 0 0;
+    }
+    .email-header h1 {
+      color: #ffffff;
+      font-size: 28px;
+      font-weight: 700;
+      margin: 0;
+      letter-spacing: -0.5px;
+    }
+    .email-body {
+      padding: 40px 30px;
+      background-color: #ffffff;
+      border-radius: 0 0 8px 8px;
+    }
+    .email-content {
+      color: #1e293b;
+      font-size: 16px;
+      line-height: 1.8;
+      margin-bottom: 30px;
+    }
+    .email-content p {
+      margin-bottom: 16px;
+    }
+    .button-container {
+      text-align: center;
+      margin: 35px 0;
+    }
+    .email-button {
+      display: inline-block;
+      padding: 14px 32px;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      transition: all 0.3s ease;
+      letter-spacing: 0.3px;
+    }
+    .email-button-accept {
+      background: linear-gradient(135deg, #10b981 0%, #10b981dd 100%);
+      color: #ffffff !important;
+    }
+    .email-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    }
+    .email-divider {
+      height: 1px;
+      background: linear-gradient(to right, transparent, #e2e8f0, transparent);
+      margin: 30px 0;
+    }
+    .security-note {
+      background-color: #f8fafc;
+      border-left: 4px solid #3b82f6;
+      padding: 16px;
+      margin: 25px 0;
+      border-radius: 4px;
+      font-size: 14px;
+      color: #64748b;
+    }
+    @media only screen and (max-width: 600px) {
+      .email-wrapper {
+        width: 100% !important;
+      }
+      .email-header,
+      .email-body {
+        padding: 25px 20px !important;
+      }
+      .email-header h1 {
+        font-size: 24px !important;
+      }
+      .email-content {
+        font-size: 15px !important;
+      }
+      .email-button {
+        padding: 12px 24px !important;
+        font-size: 15px !important;
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div style="padding: 20px 0;">
+    <div class="email-wrapper">
+      <div class="email-header">
+        <h1>New Join Request</h1>
+      </div>
+      <div class="email-body">
+        <div class="email-content">
+          <p>Hello,</p>
+          <p><strong>${requesterName}</strong> (${requesterEmail}) has requested to join your organization <strong>"${organizationName}"</strong>.</p>
+          <p>Click the button below to accept this request.</p>
+        </div>
+        <div class="button-container">
+          <a href="${acceptLink}" class="email-button email-button-accept">✓ Accept Request</a>
+        </div>
+        <div class="email-divider"></div>
+        <div class="security-note">
+          <strong>Note:</strong> This join request will expire in ${expiresIn}. You can also manage join requests from your workspace dashboard.
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim()
+}
+
 export function getOrganizationInvitationTemplate(
   organizationName: string,
   invitationLink: string,

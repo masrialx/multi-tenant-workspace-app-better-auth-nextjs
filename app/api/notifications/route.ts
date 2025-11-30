@@ -22,7 +22,13 @@ export async function GET(request: Request) {
       take: 50, // Limit to 50 most recent
     })
 
-    const unreadCount = notifications.filter((n) => !n.read).length
+    // Calculate unread count from database for accuracy
+    const unreadCount = await prisma.notification.count({
+      where: {
+        userId: user.id,
+        read: false,
+      },
+    })
 
     return successResponse({
       notifications,
