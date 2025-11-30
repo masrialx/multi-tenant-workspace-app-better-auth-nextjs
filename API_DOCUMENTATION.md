@@ -53,6 +53,107 @@ Authenticate with email and password.
 
 ## Organization Management
 
+### Create Organization
+**POST** `/api/org/create`
+
+Create a new organization. The authenticated user becomes the organization owner.
+
+**Request:**
+\`\`\`json
+{
+  "name": "Organization Name"
+}
+\`\`\`
+
+**Response:**
+\`\`\`json
+{
+  "success": true,
+  "data": {
+    "organization": {
+      "id": "org_id",
+      "name": "Organization Name",
+      "slug": "organization-name",
+      "ownerId": "user_id"
+    }
+  },
+  "message": "Organization created successfully"
+}
+\`\`\`
+
+**Behavior:**
+- Generates URL-safe slug from organization name
+- Creates organization with user as owner
+- Automatically adds owner as organization member
+- Slug must be unique
+
+**Error Cases:**
+- 401: Unauthorized
+- 400: Invalid name, slug already exists
+
+### List Organizations
+**GET** `/api/org/list`
+
+Get all organizations the authenticated user belongs to.
+
+**Response:**
+\`\`\`json
+{
+  "success": true,
+  "data": {
+    "organizations": [
+      {
+        "id": "org_id",
+        "name": "Organization Name",
+        "slug": "organization-name",
+        "role": "owner"
+      }
+    ]
+  }
+}
+\`\`\`
+
+### Join Organization
+**POST** `/api/org/join`
+
+Join an organization by providing its slug. Creates a join request that the organization owner must approve. Users can send multiple join requests (no duplicate prevention).
+
+**Request:**
+\`\`\`json
+{
+  "slug": "organization-slug"
+}
+\`\`\`
+
+**Response:**
+\`\`\`json
+{
+  "success": true,
+  "data": {
+    "organization": {
+      "id": "org_id",
+      "name": "Organization Name",
+      "slug": "organization-slug"
+    }
+  },
+  "message": "Join request sent. The organization owner will be notified via email and notification."
+}
+\`\`\`
+
+**Behavior:**
+- Normalizes and validates organization slug
+- Finds organization by slug
+- Checks if user is already a member (prevents duplicate membership)
+- Allows multiple join requests (no duplicate prevention)
+- Creates notification for organization owner
+- Sends email to owner with accept link
+- Join request expires in 7 days
+
+**Error Cases:**
+- 401: Unauthorized
+- 400: Invalid slug, already a member
+- 404: Organization not found
+
 ### Get Organization Members
 **GET** `/api/org/members?orgId={orgId}`
 
@@ -107,10 +208,11 @@ Invite a new member to an organization by email. Creates an invitation that the 
 
 **Behavior:**
 - Creates an invitation record (not directly adds member)
-- If user exists: Sends notification and email invitation
+- If user exists: Sends notification and email invitation with accept/reject links
 - If user doesn't exist: Sends email invitation (user can sign up and accept later)
 - Invitation expires in 7 days
-- Prevents duplicate pending invitations
+- Updates existing unread invitation notifications instead of creating duplicates
+- Email includes expiration information (7 days)
 
 **Error Cases:**
 - 401: Unauthorized (not logged in)
@@ -177,6 +279,99 @@ Accept an organization invitation. User must be authenticated and the invitation
 - 401: Unauthorized (not logged in)
 - 400: Invitation expired, already accepted/rejected, or email mismatch
 - 404: Invitation not found
+
+### Reject Organization Invitation
+**POST** `/api/org/invitations/reject`
+
+Reject an organization invitation. User must be authenticated and the invitation email must match the user's email.
+
+**Request:**
+\`\`\`json
+{
+  "invitationId": "invitation_id"
+}
+\`\`\`
+
+**Response:**
+\`\`\`json
+{
+  "success": true,
+  "message": "Invitation declined successfully"
+}
+\`\`\`
+
+**Behavior:**
+- Validates invitation (status, email match)
+- Updates invitation status to "rejected"
+- Marks related notification as read
+- Creates notification for organization owner
+- Prevents duplicate rejections
+
+**Error Cases:**
+- 401: Unauthorized (not logged in)
+- 400: Invitation already accepted/rejected, or email mismatch
+- 404: Invitation not found
+
+### Delete Organization
+**DELETE** `/api/org/delete`
+
+Delete an organization. Only the organization owner can perform this action, and password verification is required.
+
+**Request:**
+\`\`\`json
+{
+  "orgId": "org_id",
+  "password": "user_password"
+}
+\`\`\`
+
+**Response:**
+\`\`\`json
+{
+  "success": true,
+  "message": "Organization \"Organization Name\" has been deleted successfully"
+}
+\`\`\`
+
+**Behavior:**
+- Verifies user is the organization owner
+- Verifies password using better-auth sign-in API
+- Creates notifications for all members and owner about deletion
+- Sends email notifications to all members and owner
+- Deletes organization (cascade deletes related records)
+
+**Error Cases:**
+- 401: Unauthorized (not logged in)
+- 403: Forbidden (not organization owner)
+- 400: Incorrect password, missing password, or organization not found
+- 404: Organization not found
+
+### Join Request Action (Email Link)
+**GET** `/api/org/join-request/action?notificationId={id}&action={accept|reject}`
+
+Accept or reject a join request directly from an email link. This endpoint redirects to the workspace page with success/error messages.
+
+**Query Parameters:**
+- `notificationId` (required): Notification ID for the join request
+- `action` (required): Either "accept" or "reject"
+
+**Behavior:**
+- Validates notification exists and is a join request
+- Checks if request is already processed
+- Validates expiration (7 days)
+- Verifies organization owner permissions
+- Processes accept/reject action
+- Redirects to workspace with message
+
+**Redirect URLs:**
+- Success: `/workspace?message=Join request accepted successfully`
+- Error: `/workspace?error=Error message`
+
+**Error Cases:**
+- Redirects with error if notification not found
+- Redirects with error if already processed
+- Redirects with error if expired
+- Redirects with error if invalid permissions
 
 ## Outline Management
 
@@ -302,6 +497,115 @@ Delete an outline from an organization.
 }
 \`\`\`
 
+### Get Notifications
+**GET** `/api/notifications`
+
+Get all notifications for the authenticated user.
+
+**Response:**
+\`\`\`json
+{
+  "success": true,
+  "data": {
+    "notifications": [
+      {
+        "id": "notification_id",
+        "type": "join_request",
+        "title": "New Join Request",
+        "message": "User wants to join \"Organization Name\"",
+        "read": false,
+        "metadata": "{\"organizationId\":\"...\",\"expiresAt\":\"...\",\"daysUntilExpiration\":7}",
+        "createdAt": "2024-01-01T00:00:00Z"
+      }
+    ],
+    "unreadCount": 5
+  }
+}
+\`\`\`
+
+**Notification Types:**
+- `join_request` - New join request (expires in 7 days)
+- `join_accepted` - Join request accepted
+- `join_rejected` - Join request rejected
+- `invitation` - Organization invitation (expires in 7 days)
+- `invitation_accepted` - Invitation accepted
+- `invitation_rejected` - Invitation rejected
+- `organization_deleted` - Organization deleted
+
+**Metadata Fields:**
+- `organizationId` - Organization ID
+- `organizationName` - Organization name
+- `requestingUserId` - User ID (for join requests)
+- `invitationId` - Invitation ID (for invitations)
+- `expiresAt` - Expiration date (ISO string)
+- `daysUntilExpiration` - Days until expiration
+
+### Mark Notification as Read
+**PATCH** `/api/notifications`
+
+Mark one or all notifications as read.
+
+**Request (Single):**
+\`\`\`json
+{
+  "notificationId": "notification_id"
+}
+\`\`\`
+
+**Request (All):**
+\`\`\`json
+{
+  "markAllAsRead": true
+}
+\`\`\`
+
+**Response:**
+\`\`\`json
+{
+  "success": true,
+  "message": "Notification marked as read"
+}
+\`\`\`
+
+### Accept/Reject Join Request
+**POST** `/api/notifications/join-request`
+
+Accept or reject a join request from a notification. Only organization owners can perform this action.
+
+**Request:**
+\`\`\`json
+{
+  "notificationId": "notification_id",
+  "action": "accept"
+}
+\`\`\`
+
+**Actions:**
+- `accept` - Accept the join request
+- `reject` - Reject the join request
+
+**Response:**
+\`\`\`json
+{
+  "success": true,
+  "message": "Join request accepted"
+}
+\`\`\`
+
+**Behavior:**
+- Validates notification and ownership
+- Checks expiration (7 days)
+- Adds user as member (if accept)
+- Updates notification status
+- Creates notification for requester
+- Sends email to requester
+
+**Error Cases:**
+- 401: Unauthorized
+- 403: Forbidden (not organization owner)
+- 400: Notification not found, already processed, or expired
+- 404: Notification not found
+
 ## Error Responses
 
 All endpoints return error responses in this format:
@@ -354,3 +658,15 @@ Pagination is not implemented. For production, add:
 - `name`: 1-255 characters
 - `target` and `limit`: Non-negative integers
 - `sectionType`, `status`, `reviewer`: Valid enum values only
+
+---
+
+## Author
+
+**Masresha Alemu**  
+*Mid-level Software Engineer*
+
+- 🌐 **Portfolio**: [https://masresha-alemu.netlify.app/](https://masresha-alemu.netlify.app/)
+- 💼 **LinkedIn**: [https://www.linkedin.com/in/masresha-a-851241232/](https://www.linkedin.com/in/masresha-a-851241232/)
+- 📧 **Email**: masrialemuai@gmail.com
+- 📱 **Phone**: +251979742762

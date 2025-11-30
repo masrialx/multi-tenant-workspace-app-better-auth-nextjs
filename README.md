@@ -16,19 +16,25 @@ A complete, production-ready multi-tenant workspace application built with **Nex
 ### 🏢 Multi-Tenant Organization System
 - **Create Organizations** - Create new organizations with auto-generated slugs
 - **Join Organizations** - Join organizations via slug with join request system
+- **Delete Organizations** - Organization owners can delete organizations with password verification
 - **Organization Ownership** - Automatic owner role assignment for creators
 - **Slug Management** - URL-safe slug generation and validation
 - **Organization Listing** - View all organizations user belongs to
 - **Organization Scoping** - All resources scoped to organizations
+- **Deletion Notifications** - All members and owner notified when organization is deleted
 
 ### 👥 Team Management
 - **Member Invitations** - Invite team members by email with invitation system
-- **Invitation Acceptance** - Users must accept invitations before joining organizations
-- **Email Notifications** - Automatic email notifications for invitations
+- **Invitation Acceptance/Rejection** - Users can accept or reject invitations
+- **Invitation Expiration** - Invitations expire after 7 days with visual indicators
+- **Email Notifications** - Automatic email notifications for invitations with action links
 - **Role-Based Access Control** - Owner and Member roles with granular permissions
 - **Member Management** - List, view, and remove organization members
-- **Owner Privileges** - Owner-only actions (invite, remove members, manage outlines)
+- **Owner Privileges** - Owner-only actions (invite, remove members, manage outlines, delete organization)
 - **Join Request System** - Request-based joining with owner approval workflow
+- **Multiple Join Requests** - Users can send multiple join requests (no duplicate prevention)
+- **Join Request Expiration** - Join requests expire after 7 days
+- **Email Action Links** - Accept/reject join requests directly from email links
 - **Real-time Notifications** - Notification system for invitations, join requests, and approvals
 
 ### 📋 Outline Management
@@ -45,25 +51,32 @@ A complete, production-ready multi-tenant workspace application built with **Nex
 
 ### 🔔 Notification System
 - **Real-time Notifications** - Polling-based notification system (30-second intervals)
-- **Join Request Notifications** - Notify owners of join requests
-- **Join Request Actions** - Accept or reject join requests directly from notifications
+- **Join Request Notifications** - Notify owners of join requests with email links
+- **Join Request Actions** - Accept or reject join requests directly from notifications or email links
 - **Notification Types**:
-  - `join_request` - New join request
+  - `join_request` - New join request (expires in 7 days)
   - `join_accepted` - Join request accepted
   - `join_rejected` - Join request rejected
-  - `invitation` - Organization invitation (requires acceptance)
+  - `invitation` - Organization invitation (expires in 7 days, requires acceptance)
   - `invitation_accepted` - Invitation accepted notification
+  - `invitation_rejected` - Invitation rejected notification
+  - `organization_deleted` - Organization deletion notification
+- **Expiration Handling** - Invitations and join requests expire after 7 days with visual indicators
 - **Read/Unread Status** - Mark notifications as read individually or all at once
 - **Unread Count Badge** - Visual indicator of unread notifications
-- **Notification UI** - Beautiful popover-based notification center
+- **Notification UI** - Beautiful popover-based notification center with expiration warnings
+- **Email Integration** - Accept/reject actions available directly from email links
 
 ### 📧 Email System
 - **SMTP Integration** - Full SMTP support with Nodemailer
 - **Email Templates** - Beautiful HTML email templates for:
   - Password reset emails
   - Email verification emails
-  - Organization invitation emails
+  - Organization invitation emails (with accept/reject links)
+  - Join request notifications (with accept link for owners)
   - Join request acceptance/rejection emails
+  - Organization deletion notifications
+- **Email Action Links** - Direct action links in emails for accepting/rejecting requests
 - **Email Validation** - Comprehensive email format and deliverability checks
 - **Email Verification Banner** - UI component prompting users to verify email
 - **Error Handling** - Graceful email send error handling with user-friendly messages
@@ -320,9 +333,10 @@ multi-tenant-workspace-app-better-auth-nextjs/
 
 **Notification**
 - User notifications
-- Types: join_request, join_accepted, join_rejected, invitation
+- Types: join_request, join_accepted, join_rejected, invitation, invitation_accepted, invitation_rejected, organization_deleted
 - Read/unread status
-- JSON metadata for additional data
+- JSON metadata for additional data (expiration dates, organization info, etc.)
+- Expiration tracking for invitations and join requests (7 days)
 
 **Verification**
 - Email verification tokens
@@ -355,10 +369,13 @@ POST   /api/auth/verify-email         - Verify email with token
 GET    /api/org/list                  - List user's organizations
 POST   /api/org/create                - Create new organization
 POST   /api/org/join                  - Join organization (creates request)
+DELETE /api/org/delete                - Delete organization (owner only, requires password)
 GET    /api/org/members?orgId={id}   - List organization members
 POST   /api/org/members               - Invite member (owner only, creates invitation)
 DELETE /api/org/members?orgId={id}&userId={id} - Remove member (owner only)
 POST   /api/org/invitations/accept   - Accept organization invitation
+POST   /api/org/invitations/reject   - Reject organization invitation
+GET    /api/org/join-request/action   - Accept/reject join request from email link
 ```
 
 ### Outlines
@@ -371,9 +388,9 @@ DELETE /api/outlines/:id?orgId={id}   - Delete outline
 
 ### Notifications
 ```
-GET    /api/notifications             - Get user notifications
+GET    /api/notifications             - Get user notifications (with unread count)
 PATCH  /api/notifications             - Mark notification(s) as read
-POST   /api/notifications/join-request - Accept/reject join request
+POST   /api/notifications/join-request - Accept/reject join request from notification
 ```
 
 ### User
@@ -590,6 +607,28 @@ npx prisma migrate reset
 
 MIT License - see LICENSE file for details
 
+## 👨‍💻 Author & Contact
+
+**Masresha Alemu**  
+*Mid-level Software Engineer*
+
+- 🌐 **Portfolio**: [https://masresha-alemu.netlify.app/](https://masresha-alemu.netlify.app/)
+- 💼 **LinkedIn**: [https://www.linkedin.com/in/masresha-a-851241232/](https://www.linkedin.com/in/masresha-a-851241232/)
+- 📧 **Email**: masrialemuai@gmail.com
+- 📱 **Phone**: +251979742762
+
+For questions, collaborations, or inquiries, feel free to reach out!
+
+## 👨‍💻 Author
+
+**Masresha Alemu**  
+*Mid-level Software Engineer*
+
+- 🌐 **Portfolio**: [https://masresha-alemu.netlify.app/](https://masresha-alemu.netlify.app/)
+- 💼 **LinkedIn**: [https://www.linkedin.com/in/masresha-a-851241232/](https://www.linkedin.com/in/masresha-a-851241232/)
+- 📧 **Email**: masrialemuai@gmail.com
+- 📱 **Phone**: +251979742762
+
 ## 🆘 Support
 
 For issues and questions:
@@ -597,19 +636,28 @@ For issues and questions:
 2. Review documentation files
 3. Check troubleshooting section
 4. Create detailed bug report with reproduction steps
+5. Contact the author via email or LinkedIn
 
 ## 🗺️ Roadmap
 
 ### Completed ✅
 - ✅ Email verification system
 - ✅ Password reset functionality
-- ✅ Join request system with notifications
-- ✅ Real-time notification center
-- ✅ Email templates
+- ✅ Join request system with notifications and email links
+- ✅ Real-time notification center with expiration handling
+- ✅ Email templates with action links
 - ✅ Email validation
 - ✅ Organization slug system
 - ✅ Role-based access control
 - ✅ Dark mode support
+- ✅ Organization deletion with password verification
+- ✅ Invitation rejection functionality
+- ✅ Join request expiration (7 days)
+- ✅ Invitation expiration (7 days)
+- ✅ Multiple join requests allowed
+- ✅ Email action links for accepting/rejecting requests
+- ✅ Organization deletion notifications
+- ✅ Notification expiration indicators
 
 ### Planned 🚧
 - [ ] Two-factor authentication (2FA)

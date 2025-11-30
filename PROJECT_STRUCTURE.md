@@ -8,8 +8,24 @@ workspace-app/
 │   │   │   └── [auth]/
 │   │   │       └── route.ts              # better-auth handler
 │   │   ├── org/
-│   │   │   └── members/
-│   │   │       └── route.ts              # Team member CRUD
+│   │   │   ├── create/
+│   │   │   │   └── route.ts              # Create organization
+│   │   │   ├── delete/
+│   │   │   │   └── route.ts              # Delete organization (owner only)
+│   │   │   ├── join/
+│   │   │   │   └── route.ts              # Join organization (creates request)
+│   │   │   ├── join-request/
+│   │   │   │   └── action/
+│   │   │   │       └── route.ts          # Accept/reject join request from email
+│   │   │   ├── list/
+│   │   │   │   └── route.ts              # List user's organizations
+│   │   │   ├── members/
+│   │   │   │   └── route.ts              # Team member CRUD
+│   │   │   └── invitations/
+│   │   │       ├── accept/
+│   │   │       │   └── route.ts          # Accept invitation
+│   │   │       └── reject/
+│   │   │           └── route.ts          # Reject invitation
 │   │   └── outlines/
 │   │       ├── route.ts                  # Outline CRUD
 │   │       └── [id]/
@@ -72,6 +88,21 @@ workspace-app/
 - Manages sign-up, sign-in, sign-out
 - Handles session management
 
+#### `org/create/route.ts`
+- POST: Create new organization with auto-generated slug
+
+#### `org/delete/route.ts`
+- DELETE: Delete organization (owner only, requires password verification)
+
+#### `org/join/route.ts`
+- POST: Join organization by slug (creates join request)
+
+#### `org/join-request/action/route.ts`
+- GET: Accept/reject join request from email link (redirects to workspace)
+
+#### `org/list/route.ts`
+- GET: List all organizations user belongs to
+
 #### `org/members/route.ts`
 - GET: Fetch organization members
 - POST: Invite new member (creates invitation)
@@ -79,6 +110,16 @@ workspace-app/
 
 #### `org/invitations/accept/route.ts`
 - POST: Accept organization invitation
+
+#### `org/invitations/reject/route.ts`
+- POST: Reject organization invitation
+
+#### `notifications/route.ts`
+- GET: Fetch user notifications with unread count
+- PATCH: Mark notification(s) as read
+
+#### `notifications/join-request/route.ts`
+- POST: Accept/reject join request from notification
 
 #### `outlines/route.ts`
 - GET: Fetch all outlines for an organization
@@ -221,3 +262,13 @@ NODE_ENV="production"
 6. **Open in browser**
    \`\`\`
    http://localhost:3000
+
+## Author
+
+**Masresha Alemu**  
+*Mid-level Software Engineer*
+
+- 🌐 **Portfolio**: [https://masresha-alemu.netlify.app/](https://masresha-alemu.netlify.app/)
+- 💼 **LinkedIn**: [https://www.linkedin.com/in/masresha-a-851241232/](https://www.linkedin.com/in/masresha-a-851241232/)
+- 📧 **Email**: masrialemuai@gmail.com
+- 📱 **Phone**: +251979742762

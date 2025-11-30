@@ -350,11 +350,13 @@ export function generateEmailTemplate(options: EmailTemplateOptions): string {
 ### Notification Types
 
 **Types:**
-- `join_request` - New join request (requires action)
+- `join_request` - New join request (requires action, expires in 7 days)
 - `join_accepted` - Join request accepted
 - `join_rejected` - Join request rejected
-- `invitation` - Organization invitation (requires acceptance)
+- `invitation` - Organization invitation (requires acceptance, expires in 7 days)
 - `invitation_accepted` - Invitation accepted notification
+- `invitation_rejected` - Invitation rejected notification
+- `organization_deleted` - Organization deleted notification
 
 ### Notification Storage
 
@@ -380,7 +382,12 @@ model Notification {
   "organizationName": "Org Name",
   "requestingUserId": "user_id",
   "requestingUserName": "User Name",
-  "requestingUserEmail": "user@example.com"
+  "requestingUserEmail": "user@example.com",
+  "invitationId": "invitation_id",
+  "expiresAt": "2024-01-08T00:00:00Z",
+  "daysUntilExpiration": 7,
+  "deletedBy": "user_id",
+  "deletedByName": "User Name"
 }
 ```
 
@@ -390,6 +397,7 @@ model Notification {
 - Client polls `/api/notifications` every 30 seconds
 - Unread count badge updates automatically
 - Notification list refreshes on open
+- Fetches notifications when popover opens
 
 **Implementation:**
 ```typescript
@@ -399,8 +407,21 @@ useEffect(() => {
     const interval = setInterval(fetchNotifications, 30000)
     return () => clearInterval(interval)
   }
-}, [session])
+}, [session?.user?.id])
+
+// Fetch when popover opens
+useEffect(() => {
+  if (isOpen && session?.user) {
+    fetchNotifications()
+  }
+}, [isOpen, session?.user?.id])
 ```
+
+**Expiration Handling:**
+- Notifications display expiration countdown
+- Expired notifications show "Expired" status
+- Accept/reject buttons disabled for expired notifications
+- Backend validates expiration before processing actions
 
 ### Join Request Actions
 
@@ -413,11 +434,19 @@ useEffect(() => {
 6. Email sent to requester (optional)
 
 **Reject Flow:**
-1. Owner clicks "Reject" on notification
+1. Owner clicks "Reject" on notification or email link
 2. API validates notification and ownership
-3. Notification updated to `join_rejected`
-4. New notification created for requester
-5. Email sent to requester (optional)
+3. Checks expiration (7 days)
+4. Notification updated to `join_rejected`
+5. New notification created for requester
+6. Email sent to requester
+
+**Email Link Flow:**
+1. Owner clicks accept/reject link in email
+2. Redirects to `/api/org/join-request/action` with notificationId and action
+3. API validates and processes request
+4. Redirects to workspace with success/error message
+5. Workspace page displays toast notification
 
 ### Invitation System
 
@@ -467,8 +496,16 @@ POST /api/org/invitations/accept
 **Invitation Validation:**
 - Email must match authenticated user's email
 - Invitation must be in "pending" status
-- Invitation must not be expired
+- Invitation must not be expired (7 days)
 - Prevents duplicate memberships
+
+**Invitation Rejection:**
+1. User clicks "Reject" on notification
+2. API validates invitation and email match
+3. Updates invitation status to "rejected"
+4. Marks notification as read
+5. Creates notification for organization owner
+6. Prevents duplicate rejections
 
 ## Database Design
 
@@ -838,4 +875,14 @@ export async function POST(request: Request) {
 ---
 
 This implementation documentation provides a comprehensive overview of the system's architecture and implementation details. For specific API endpoints, see [API_DOCUMENTATION.md](./API_DOCUMENTATION.md). For setup instructions, see [SETUP_INSTRUCTIONS.md](./SETUP_INSTRUCTIONS.md).
+
+## Author
+
+**Masresha Alemu**  
+*Mid-level Software Engineer*
+
+- 🌐 **Portfolio**: [https://masresha-alemu.netlify.app/](https://masresha-alemu.netlify.app/)
+- 💼 **LinkedIn**: [https://www.linkedin.com/in/masresha-a-851241232/](https://www.linkedin.com/in/masresha-a-851241232/)
+- 📧 **Email**: masrialemuai@gmail.com
+- 📱 **Phone**: +251979742762
 
