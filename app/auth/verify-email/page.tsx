@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react"
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -69,18 +69,7 @@ export default function VerifyEmailPage() {
   }, [searchParams, router, toast])
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4 relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute inset-0 bg-grid-pattern opacity-[0.02] dark:opacity-[0.05]" />
-      <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-      
-      {/* Theme toggle */}
-      <div className="absolute top-4 right-4 z-10">
-        <ThemeToggle />
-      </div>
-
-      <Card className="w-full max-w-md relative z-10 shadow-2xl border-2 backdrop-blur-sm bg-card/95">
+    <Card className="w-full max-w-md relative z-10 shadow-2xl border-2 backdrop-blur-sm bg-card/95">
         <CardHeader className="space-y-3 text-center pb-6">
           <div className="flex items-center justify-center mb-2">
             <div className={`p-3 rounded-full ${isVerified ? "bg-green-500/10" : error ? "bg-destructive/10" : "bg-primary/10"}`}>
@@ -121,6 +110,41 @@ export default function VerifyEmailPage() {
           )}
         </CardContent>
       </Card>
+  )
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4 relative overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-[0.02] dark:opacity-[0.05]" />
+      <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
+      
+      {/* Theme toggle */}
+      <div className="absolute top-4 right-4 z-10">
+        <ThemeToggle />
+      </div>
+
+      <Suspense fallback={
+        <Card className="w-full max-w-md relative z-10 shadow-2xl border-2 backdrop-blur-sm bg-card/95">
+          <CardHeader className="space-y-3 text-center pb-6">
+            <div className="flex items-center justify-center mb-2">
+              <div className="p-3 rounded-full bg-primary/10">
+                <Loader2 className="h-6 w-6 text-primary animate-spin" />
+              </div>
+            </div>
+            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              Verifying Email...
+            </CardTitle>
+            <CardDescription className="text-base">
+              Please wait while we verify your email address
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      }>
+        <VerifyEmailContent />
+      </Suspense>
     </div>
   )
 }

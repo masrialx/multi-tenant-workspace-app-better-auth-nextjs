@@ -105,7 +105,7 @@ export async function checkOrgOwner(
     select: { ownerId: true },
   })
 
-  return organization?.ownerId === userId ?? false
+  return organization ? organization.ownerId === userId : false
 }
 
 /**

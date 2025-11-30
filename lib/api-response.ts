@@ -55,7 +55,7 @@ export function errorResponse(
       error,
       ...(options?.errorCode && { errorCode: options.errorCode }),
       ...(options?.message && { message: options.message }),
-      ...(options?.details && { details: options.details }),
+      ...(options?.details !== undefined && { details: options.details }),
     },
     { status }
   )
@@ -116,7 +116,7 @@ export function internalErrorResponse(
   return errorResponse(message, 500, {
     errorCode: "INTERNAL_ERROR",
     message,
-    ...(process.env.NODE_ENV === "development" && details && { details }),
+    ...(process.env.NODE_ENV === "development" && details !== undefined && { details }),
   })
 }
 
@@ -127,7 +127,7 @@ export function handleApiError(error: unknown): Response {
   if (error instanceof Error) {
     // Zod validation errors
     if (error.name === "ZodError") {
-      const zodError = error as { errors: Array<{ message: string; path: string[] }> }
+      const zodError = error as unknown as { errors: Array<{ message: string; path: string[] }> }
       return badRequestResponse(
         zodError.errors[0]?.message || "Validation error",
         "VALIDATION_ERROR",

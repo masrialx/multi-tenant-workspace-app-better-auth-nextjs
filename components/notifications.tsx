@@ -439,7 +439,12 @@ export function Notifications() {
           ) : (
             <div className="divide-y divide-border/50">
               {notifications.map((notification, index) => {
-                let metadata = {}
+                let metadata: {
+                  expiresAt?: string
+                  invitationId?: string
+                  daysUntilExpiration?: number
+                  [key: string]: any
+                } = {}
                 try {
                   metadata = notification.metadata
                     ? JSON.parse(notification.metadata)
@@ -581,7 +586,7 @@ export function Notifications() {
                                 className="h-7 px-3 text-xs font-medium shadow-sm hover:shadow-md transition-all duration-200"
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  handleInvitationAccept(metadata.invitationId)
+                                  handleInvitationAccept(metadata.invitationId!)
                                 }}
                                 disabled={isLoading}
                               >
@@ -598,7 +603,7 @@ export function Notifications() {
                                 className="h-7 px-3 text-xs font-medium hover:bg-destructive/10 hover:border-destructive/50 transition-all duration-200"
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  handleInvitationReject(metadata.invitationId)
+                                  handleInvitationReject(metadata.invitationId!)
                                 }}
                                 disabled={isLoading}
                               >

@@ -1,5 +1,4 @@
 import { getSessionUser } from "@/lib/auth"
-import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { compare } from "bcryptjs"
 import { z } from "zod"
@@ -73,49 +72,10 @@ export async function DELETE(request: Request) {
       )
     }
 
-    // Verify password using better-auth's signInEmail API
-    // This ensures we use the same password verification method as the auth system
-    try {
-      // Create headers without cookies to avoid affecting current session
-      const testHeaders = new Headers()
-      testHeaders.set("Content-Type", "application/json")
-      
-      // Use better-auth's signInEmail to verify password
-      const signInResult = await auth.api.signInEmail({
-        body: {
-          email: owner.email,
-          password: data.password,
-        },
-        headers: testHeaders,
-      })
-
-      // If signIn fails or has error, password is incorrect
-      if (signInResult?.error) {
-        const errorMessage = signInResult.error.message || ""
-        if (errorMessage.toLowerCase().includes("password") || 
-            errorMessage.toLowerCase().includes("invalid") || 
-            errorMessage.toLowerCase().includes("incorrect") ||
-            errorMessage.toLowerCase().includes("credentials")) {
-          return badRequestResponse("Incorrect password. Please try again.", "INVALID_PASSWORD")
-        }
-        return badRequestResponse("Incorrect password. Please try again.", "INVALID_PASSWORD")
-      }
-
-      // If no result or no user in result, password is incorrect
-      if (!signInResult || !signInResult.user) {
-        return badRequestResponse("Incorrect password. Please try again.", "INVALID_PASSWORD")
-      }
-    } catch (error: any) {
-      // If there's an error, it means password verification failed
-      console.error("Password verification error:", error)
-      const errorMessage = error?.message || ""
-      if (errorMessage.toLowerCase().includes("password") || 
-          errorMessage.toLowerCase().includes("invalid") || 
-          errorMessage.toLowerCase().includes("incorrect") ||
-          errorMessage.toLowerCase().includes("credentials")) {
-        return badRequestResponse("Incorrect password. Please try again.", "INVALID_PASSWORD")
-      }
-      // For other errors, still return invalid password
+    // Verify password using bcryptjs compare (same method used by better-auth)
+    const isPasswordValid = await compare(data.password, account.password)
+    
+    if (!isPasswordValid) {
       return badRequestResponse("Incorrect password. Please try again.", "INVALID_PASSWORD")
     }
 
@@ -178,7 +138,7 @@ export async function DELETE(request: Request) {
 
     // Send email notifications to all members and owner
     const { sendEmail } = await import("@/lib/email")
-    const emailPromises: Promise<void>[] = []
+    const emailPromises: Promise<{ success: boolean; messageId: any } | void>[] = []
 
     // Email to owner
     if (ownerUser && ownerUser.email) {
