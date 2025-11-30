@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma"
 import { createOrgSchema, generateSlug } from "@/lib/validation"
 import { unauthorizedResponse, badRequestResponse, successResponse, handleApiError } from "@/lib/api-response"
 
+// Type helper for Prisma transaction client
+type PrismaTransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+
 // POST /api/org/create
 export async function POST(request: Request) {
   try {
@@ -69,7 +72,7 @@ export async function POST(request: Request) {
     }
 
     // Create organization and add owner as member in a transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: PrismaTransactionClient) => {
       // Create organization
       const org = await tx.organization.create({
         data: {
