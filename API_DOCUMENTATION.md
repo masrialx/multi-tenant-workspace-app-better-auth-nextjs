@@ -79,7 +79,7 @@ Get all members of an organization. Requires authenticated user and membership i
 ### Invite Organization Member
 **POST** `/api/org/members`
 
-Invite a new member to an organization. Only organization owner can perform this action.
+Invite a new member to an organization by email. Creates an invitation that the user must accept before joining. Only organization owner can perform this action.
 
 **Request:**
 \`\`\`json
@@ -93,22 +93,30 @@ Invite a new member to an organization. Only organization owner can perform this
 **Response:**
 \`\`\`json
 {
-  "member": {
-    "id": "member_id",
-    "role": "member",
-    "user": {
-      "id": "user_id",
-      "name": "User Name",
-      "email": "newmember@example.com"
+  "success": true,
+  "data": {
+    "invitation": {
+      "id": "invitation_id",
+      "email": "newmember@example.com",
+      "status": "pending"
     }
-  }
+  },
+  "message": "Invitation sent successfully. The user will be notified."
 }
 \`\`\`
+
+**Behavior:**
+- Creates an invitation record (not directly adds member)
+- If user exists: Sends notification and email invitation
+- If user doesn't exist: Sends email invitation (user can sign up and accept later)
+- Invitation expires in 7 days
+- Prevents duplicate pending invitations
 
 **Error Cases:**
 - 401: Unauthorized (not logged in)
 - 403: Forbidden (not organization owner)
-- 400: Invalid email format or user already member
+- 400: Invalid email format, user already member, or invitation already exists
+- 404: Organization not found
 
 ### Remove Organization Member
 **DELETE** `/api/org/members?orgId={orgId}&userId={userId}`
@@ -126,6 +134,49 @@ Remove a member from an organization. Only organization owner can perform this a
 - 401: Unauthorized
 - 403: Forbidden (not organization owner)
 - 400: Missing required parameters
+
+### Accept Organization Invitation
+**POST** `/api/org/invitations/accept`
+
+Accept an organization invitation. User must be authenticated and the invitation email must match the user's email.
+
+**Request:**
+\`\`\`json
+{
+  "invitationId": "invitation_id"
+}
+\`\`\`
+
+**Response:**
+\`\`\`json
+{
+  "success": true,
+  "data": {
+    "organization": {
+      "id": "org_id",
+      "name": "Organization Name"
+    },
+    "member": {
+      "userId": "user_id",
+      "organizationId": "org_id",
+      "role": "member"
+    }
+  },
+  "message": "Successfully joined \"Organization Name\""
+}
+\`\`\`
+
+**Behavior:**
+- Validates invitation (expiration, status, email match)
+- Adds user as organization member
+- Updates invitation status to "accepted"
+- Creates notifications for both user and owner
+- Sends email notification to organization owner
+
+**Error Cases:**
+- 401: Unauthorized (not logged in)
+- 400: Invitation expired, already accepted/rejected, or email mismatch
+- 404: Invitation not found
 
 ## Outline Management
 

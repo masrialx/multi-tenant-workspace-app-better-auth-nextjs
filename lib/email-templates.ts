@@ -250,7 +250,8 @@ If you believe this is an error, please contact the organization owner directly.
 
 export function getOrganizationInvitationTemplate(
   organizationName: string,
-  invitationLink: string
+  invitationLink: string,
+  expiresIn: string = "7 days"
 ): string {
   return generateEmailTemplate({
     title: "You've Been Invited!",
@@ -258,10 +259,12 @@ export function getOrganizationInvitationTemplate(
 
 You have been invited to join the organization "${organizationName}".
 
-Click the button below to accept the invitation and start collaborating with your team.`,
+Click the button below to accept the invitation and start collaborating with your team.
+
+This invitation will expire in ${expiresIn}. Please accept it before it expires.`,
     buttonText: "Accept Invitation",
     buttonLink: invitationLink,
-    footerText: "If you did not expect this invitation, you can safely ignore this email.",
+    footerText: `This invitation will expire in ${expiresIn}. If you did not expect this invitation, you can safely ignore this email.`,
     type: "success",
   })
 }

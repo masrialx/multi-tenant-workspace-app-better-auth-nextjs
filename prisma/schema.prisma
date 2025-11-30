@@ -160,25 +160,27 @@ model Member {
 }
 
 model Invitation {
-  id             String       @id
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   email          String
   role           String?
-  status         String       @default("pending")
+  status         String       @default("pending") // "pending", "accepted", "rejected", "expired"
   expiresAt      DateTime
   createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
   inviterId      String
   user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
   @@index([email])
+  @@index([status])
   @@map("invitation")
 }
 
 model Notification {
   id        String   @id @default(cuid())
-  type      String // "join_request", "join_accepted", "join_rejected", "invitation"
+  type      String // "join_request", "join_accepted", "join_rejected", "invitation", "invitation_accepted", "invitation_rejected"
   title     String
   message   String
   read      Boolean  @default(false)

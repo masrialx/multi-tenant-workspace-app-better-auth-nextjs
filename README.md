@@ -22,12 +22,14 @@ A complete, production-ready multi-tenant workspace application built with **Nex
 - **Organization Scoping** - All resources scoped to organizations
 
 ### 👥 Team Management
-- **Member Invitations** - Invite team members by email with email notifications
+- **Member Invitations** - Invite team members by email with invitation system
+- **Invitation Acceptance** - Users must accept invitations before joining organizations
+- **Email Notifications** - Automatic email notifications for invitations
 - **Role-Based Access Control** - Owner and Member roles with granular permissions
 - **Member Management** - List, view, and remove organization members
 - **Owner Privileges** - Owner-only actions (invite, remove members, manage outlines)
 - **Join Request System** - Request-based joining with owner approval workflow
-- **Real-time Notifications** - Notification system for join requests and approvals
+- **Real-time Notifications** - Notification system for invitations, join requests, and approvals
 
 ### 📋 Outline Management
 - **Full CRUD Operations** - Create, read, update, and delete outlines
@@ -49,7 +51,8 @@ A complete, production-ready multi-tenant workspace application built with **Nex
   - `join_request` - New join request
   - `join_accepted` - Join request accepted
   - `join_rejected` - Join request rejected
-  - `invitation` - Organization invitation
+  - `invitation` - Organization invitation (requires acceptance)
+  - `invitation_accepted` - Invitation accepted notification
 - **Read/Unread Status** - Mark notifications as read individually or all at once
 - **Unread Count Badge** - Visual indicator of unread notifications
 - **Notification UI** - Beautiful popover-based notification center
@@ -231,7 +234,9 @@ multi-tenant-workspace-app-better-auth-nextjs/
 │   │   │   ├── create/           # Create organization
 │   │   │   ├── join/             # Join organization
 │   │   │   ├── list/             # List user's organizations
-│   │   │   └── members/          # Member management
+│   │   │   ├── members/          # Member management
+│   │   │   └── invitations/
+│   │   │       └── accept/       # Accept invitation
 │   │   ├── outlines/
 │   │   │   ├── [id]/             # Update/Delete outline
 │   │   │   └── route.ts          # List/Create outlines
@@ -325,9 +330,11 @@ multi-tenant-workspace-app-better-auth-nextjs/
 - Token expiration
 
 **Invitation**
-- Organization invitations
-- Status tracking (pending, accepted, rejected)
-- Expiration dates
+- Organization invitations with acceptance workflow
+- Status tracking (pending, accepted, rejected, expired)
+- Expiration dates (7 days default)
+- Email notifications for both existing and new users
+- Auto-generated IDs with cuid()
 
 ## 🔌 API Endpoints
 
@@ -349,8 +356,9 @@ GET    /api/org/list                  - List user's organizations
 POST   /api/org/create                - Create new organization
 POST   /api/org/join                  - Join organization (creates request)
 GET    /api/org/members?orgId={id}   - List organization members
-POST   /api/org/members               - Invite member (owner only)
+POST   /api/org/members               - Invite member (owner only, creates invitation)
 DELETE /api/org/members?orgId={id}&userId={id} - Remove member (owner only)
+POST   /api/org/invitations/accept   - Accept organization invitation
 ```
 
 ### Outlines

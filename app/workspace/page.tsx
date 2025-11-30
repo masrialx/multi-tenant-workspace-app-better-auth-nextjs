@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -23,6 +23,7 @@ interface Organization {
 
 export default function WorkspacePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { data: session, isPending } = useSession()
   const { toast } = useToast()
   const [organizations, setOrganizations] = useState<Organization[]>([])
@@ -34,6 +35,18 @@ export default function WorkspacePage() {
   const [isCreating, setIsCreating] = useState(false)
   const [isJoining, setIsJoining] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [isProcessingInvitation, setIsProcessingInvitation] = useState(false)
+
+  // Handle invitation from email link
+  useEffect(() => {
+    if (!searchParams || !session || isPending || isProcessingInvitation) return
+    
+    const invitationId = searchParams.get("invitation")
+    if (invitationId) {
+      handleInvitationFromEmail(invitationId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, isPending, searchParams])
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -42,6 +55,54 @@ export default function WorkspacePage() {
       fetchOrganizations()
     }
   }, [session, isPending, router])
+
+  const handleInvitationFromEmail = async (invitationId: string) => {
+    setIsProcessingInvitation(true)
+    try {
+      const response = await fetch("/api/org/invitations/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invitationId }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        toast({
+          title: "Invitation Accepted",
+          description: data.message || "You have successfully joined the organization",
+        })
+        // Remove invitation parameter from URL
+        router.replace("/workspace")
+        // Refresh organizations list
+        await fetchOrganizations()
+        // Navigate to the organization if available
+        if (data.data?.organization?.id) {
+          setTimeout(() => {
+            router.push(`/workspace/${data.data.organization.id}`)
+          }, 1000)
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || data.message || "Failed to accept invitation",
+          variant: "destructive",
+        })
+        // Remove invitation parameter from URL even on error
+        router.replace("/workspace")
+      }
+    } catch (error) {
+      console.error("Error accepting invitation:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while processing the invitation",
+        variant: "destructive",
+      })
+      router.replace("/workspace")
+    } finally {
+      setIsProcessingInvitation(false)
+    }
+  }
 
   const fetchOrganizations = async () => {
     setIsLoading(true)

@@ -161,21 +161,22 @@ export default function TeamPage() {
 
       if (response.ok) {
         const data = await response.json()
-        // Handle new API response format: { success: true, data: { member: {...} } }
-        const member = data.success && data.data?.member 
-          ? data.data.member 
-          : data.member
+        // Handle new API response format: { success: true, data: { invitation: {...} } }
+        const invitation = data.success && data.data?.invitation 
+          ? data.data.invitation 
+          : data.invitation
         
-        if (member) {
-          setMembers([...members, member])
+        if (invitation) {
           setInviteEmail("")
           setIsOpen(false)
           toast({
             title: "Success",
-            description: data.message || "Member invited successfully",
+            description: data.message || "Invitation sent successfully",
           })
+          // Refresh team data to show updated list
+          fetchTeamData()
         } else {
-          throw new Error("Member data not found in response")
+          throw new Error("Invitation data not found in response")
         }
       } else {
         const error = await response.json()

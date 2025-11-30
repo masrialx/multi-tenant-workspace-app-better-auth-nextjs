@@ -319,9 +319,10 @@ export function createEmailTransporter() {
 **Template Types:**
 1. **Password Reset**: Warning style, 7-hour expiration notice
 2. **Email Verification**: Success style, welcome message
-3. **Organization Invitation**: Success style, invitation link
+3. **Organization Invitation**: Success style, invitation link (for existing and new users)
 4. **Join Request Accepted**: Success style, welcome message
 5. **Join Request Rejected**: Default style, rejection notice
+6. **Invitation Acceptance**: Email to owner when user accepts invitation
 
 **Template Generation:**
 ```typescript
@@ -352,7 +353,8 @@ export function generateEmailTemplate(options: EmailTemplateOptions): string {
 - `join_request` - New join request (requires action)
 - `join_accepted` - Join request accepted
 - `join_rejected` - Join request rejected
-- `invitation` - Organization invitation
+- `invitation` - Organization invitation (requires acceptance)
+- `invitation_accepted` - Invitation accepted notification
 
 ### Notification Storage
 
@@ -417,6 +419,57 @@ useEffect(() => {
 4. New notification created for requester
 5. Email sent to requester (optional)
 
+### Invitation System
+
+**Invitation Flow:**
+1. Owner invites user by email via `/api/org/members` POST
+2. System creates invitation record (status: "pending", expires in 7 days)
+3. If user exists: Notification created + email sent
+4. If user doesn't exist: Email sent with signup link
+5. User accepts invitation via `/api/org/invitations/accept`
+6. System validates invitation (expiration, status, email match)
+7. User added as organization member
+8. Invitation status updated to "accepted"
+9. Notifications created for both user and owner
+10. Email sent to organization owner
+
+**Invitation Storage:**
+```prisma
+model Invitation {
+  id             String   @id @default(cuid())
+  organizationId String
+  email          String
+  role           String?  // "member" or null
+  status         String   @default("pending") // "pending", "accepted", "rejected", "expired"
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  inviterId      String
+}
+```
+
+**Invitation Acceptance:**
+```typescript
+// User accepts invitation
+POST /api/org/invitations/accept
+{
+  "invitationId": "invitation_id"
+}
+
+// System:
+// 1. Validates invitation (expiration, status, email match)
+// 2. Adds user as member
+// 3. Updates invitation status
+// 4. Creates notifications
+// 5. Sends email to owner
+```
+
+**Invitation Validation:**
+- Email must match authenticated user's email
+- Invitation must be in "pending" status
+- Invitation must not be expired
+- Prevents duplicate memberships
+
 ## Database Design
 
 ### Schema Relationships
@@ -431,7 +484,12 @@ useEffect(() => {
 - Many-to-one: Owner (User)
 - One-to-many: Members (OrganizationMember)
 - One-to-many: Outlines
-- One-to-many: Invitations
+- One-to-many: Invitations (with status tracking)
+
+**Invitation Relationships:**
+- Many-to-one: Organization
+- Many-to-one: Inviter (User)
+- Indexed on: organizationId, email, status
 
 **Cascading Deletes:**
 - User deleted → Sessions, Accounts, Verifications deleted

@@ -77,12 +77,21 @@ export default function OutlineTablePage() {
         
         if (response.ok) {
           const data = await response.json()
-          // Find the owner from the members list
-          const ownerMember = data.members.find((m: { role: string; user: { id: string } }) => m.role === "owner")
-          const ownerId = ownerMember?.user.id || ""
+          // Handle new API response format: { success: true, data: { members: [...], organization: {...} } }
+          const responseData = data.success && data.data ? data.data : data
+          const members = responseData.members || []
+          const organization = responseData.organization
           
           // Check if current user is the owner
-          setIsOrgOwner(session.user.id === ownerId)
+          if (organization && organization.ownerId) {
+            // Use organization.ownerId if available
+            setIsOrgOwner(session.user.id === organization.ownerId)
+          } else {
+            // Fallback: Find the owner from the members list
+            const ownerMember = members.find((m: { role: string; user: { id: string } }) => m.role === "owner")
+            const ownerId = ownerMember?.user.id || ""
+            setIsOrgOwner(session.user.id === ownerId)
+          }
         }
       } catch (error) {
         console.error("Error validating organization:", error)

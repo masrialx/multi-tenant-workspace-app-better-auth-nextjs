@@ -96,9 +96,11 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### Team Management
 - View all organization members
-- Invite new members (Owner only)
+- Invite new members by email (Owner only)
+- Invitations must be accepted by users before joining
 - Remove members (Owner only)
 - See member roles (Owner/Member)
+- Receive notifications for invitation acceptance
 
 ## API Endpoints
 
@@ -109,8 +111,9 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### Organization Members
 - `GET /api/org/members?orgId=...` - Get organization members
-- `POST /api/org/members` - Invite member (owner only)
+- `POST /api/org/members` - Invite member (owner only, creates invitation)
 - `DELETE /api/org/members?orgId=...&userId=...` - Remove member (owner only)
+- `POST /api/org/invitations/accept` - Accept organization invitation
 
 ### Outlines
 - `GET /api/outlines?orgId=...` - Get organization outlines
@@ -131,6 +134,10 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ### OrganizationMember
 - id, role (owner/member), organizationId, userId, createdAt, updatedAt
 - Unique constraint: (organizationId, userId)
+
+### Invitation
+- id, organizationId, email, role, status (pending/accepted/rejected/expired), expiresAt, inviterId, createdAt, updatedAt
+- Tracks organization invitations that require user acceptance
 
 ### Outline
 - id, header, sectionType, status, target, limit, reviewer, organizationId, createdAt, updatedAt
@@ -181,7 +188,7 @@ npx prisma migrate reset
 ## Next Steps
 
 1. Customize organization creation/joining flows
-2. Add email notifications for invites
+2. Configure SMTP for email notifications (see SMTP_SETUP.md)
 3. Implement user roles/permissions system
 4. Add organization settings page
 5. Setup production database

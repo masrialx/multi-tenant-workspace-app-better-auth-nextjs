@@ -74,8 +74,11 @@ workspace-app/
 
 #### `org/members/route.ts`
 - GET: Fetch organization members
-- POST: Invite new member
+- POST: Invite new member (creates invitation)
 - DELETE: Remove member from organization
+
+#### `org/invitations/accept/route.ts`
+- POST: Accept organization invitation
 
 #### `outlines/route.ts`
 - GET: Fetch all outlines for an organization
@@ -106,6 +109,7 @@ Defines database models:
 - Verification: Email verification tokens
 - Organization: Org information
 - OrganizationMember: Org membership with roles
+- Invitation: Organization invitations with status tracking
 - Outline: Outline items
 
 #### `lib/auth.ts`

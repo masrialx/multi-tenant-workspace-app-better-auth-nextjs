@@ -126,6 +126,113 @@ export function Notifications() {
     }
   }
 
+  const handleInvitationAccept = async (invitationId: string) => {
+    if (!invitationId) {
+      toast({
+        title: "Error",
+        description: "Invalid invitation ID",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const response = await fetch("/api/org/invitations/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invitationId }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        toast({
+          title: "Invitation Accepted",
+          description: data.message || "You have successfully joined the organization",
+        })
+        // Refresh notifications
+        await fetchNotifications()
+        // Reload page to show new organization
+        if (data.data?.organization) {
+          window.location.href = `/workspace/${data.data.organization.id}`
+        } else {
+          // Refresh the page to update the UI
+          window.location.reload()
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || data.message || "Failed to accept invitation",
+          variant: "destructive",
+        })
+        // Refresh notifications to get updated state
+        await fetchNotifications()
+      }
+    } catch (error) {
+      console.error("Error accepting invitation:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      })
+      // Refresh notifications to get updated state
+      await fetchNotifications()
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleInvitationReject = async (invitationId: string) => {
+    if (!invitationId) {
+      toast({
+        title: "Error",
+        description: "Invalid invitation ID",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const response = await fetch("/api/org/invitations/reject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invitationId }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        toast({
+          title: "Invitation Declined",
+          description: data.message || "Invitation has been declined",
+        })
+        // Refresh notifications
+        await fetchNotifications()
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || data.message || "Failed to decline invitation",
+          variant: "destructive",
+        })
+        // Refresh notifications to get updated state
+        await fetchNotifications()
+      }
+    } catch (error) {
+      console.error("Error rejecting invitation:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      })
+      // Refresh notifications to get updated state
+      await fetchNotifications()
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   if (!session?.user) {
     return null
   }
@@ -140,6 +247,10 @@ export function Notifications() {
         return <XCircle className="h-4 w-4 text-destructive" />
       case "invitation":
         return <Users className="h-4 w-4" />
+      case "invitation_accepted":
+        return <CheckCircle2 className="h-4 w-4 text-green-500" />
+      case "invitation_rejected":
+        return <XCircle className="h-4 w-4 text-destructive" />
       default:
         return <Bell className="h-4 w-4" />
     }
@@ -152,6 +263,12 @@ export function Notifications() {
       case "join_accepted":
         return "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20"
       case "join_rejected":
+        return "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
+      case "invitation":
+        return "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
+      case "invitation_accepted":
+        return "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20"
+      case "invitation_rejected":
         return "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
       default:
         return "bg-primary/10 text-primary border-primary/20"
@@ -231,10 +348,25 @@ export function Notifications() {
           ) : (
             <div className="divide-y divide-border/50">
               {notifications.map((notification, index) => {
-                const metadata = notification.metadata
-                  ? JSON.parse(notification.metadata)
-                  : {}
+                let metadata = {}
+                try {
+                  metadata = notification.metadata
+                    ? JSON.parse(notification.metadata)
+                    : {}
+                } catch (error) {
+                  console.error("Error parsing notification metadata:", error)
+                  metadata = {}
+                }
                 const isJoinRequest = notification.type === "join_request"
+                
+                // Check if invitation is expired
+                let isInvitationExpired = false
+                if (notification.type === "invitation" && metadata.expiresAt) {
+                  const expiresAt = new Date(metadata.expiresAt)
+                  isInvitationExpired = new Date() > expiresAt
+                }
+                
+                const isInvitation = notification.type === "invitation" && !notification.read && metadata.invitationId && !isInvitationExpired
 
                 return (
                   <div
@@ -247,7 +379,7 @@ export function Notifications() {
                       index === 0 && "rounded-t-lg"
                     )}
                     onClick={() => {
-                      if (!notification.read && !isJoinRequest) {
+                      if (!notification.read && !isJoinRequest && !isInvitation) {
                         markAsRead(notification.id)
                       }
                     }}
@@ -284,6 +416,15 @@ export function Notifications() {
                             <p className="text-sm text-muted-foreground leading-relaxed">
                               {notification.message}
                             </p>
+                            {notification.type === "invitation" && metadata.expiresAt && (
+                              <p className="text-xs text-muted-foreground/70 mt-1">
+                                {isInvitationExpired ? (
+                                  <span className="text-destructive">This invitation has expired</span>
+                                ) : metadata.daysUntilExpiration ? (
+                                  <span>Expires in {metadata.daysUntilExpiration} day{metadata.daysUntilExpiration !== 1 ? 's' : ''}</span>
+                                ) : null}
+                              </p>
+                            )}
                           </div>
                         </div>
 
@@ -321,6 +462,50 @@ export function Notifications() {
                                 <X className="h-3.5 w-3.5 mr-1.5" />
                                 Reject
                               </Button>
+                            </div>
+                          )}
+
+                          {isInvitation && metadata.invitationId && !isInvitationExpired && (
+                            <div className="flex items-center gap-2 ml-2">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="h-7 px-3 text-xs font-medium shadow-sm hover:shadow-md transition-all duration-200"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleInvitationAccept(metadata.invitationId)
+                                }}
+                                disabled={isLoading}
+                              >
+                                {isLoading ? (
+                                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                ) : (
+                                  <Check className="h-3.5 w-3.5 mr-1.5" />
+                                )}
+                                Accept
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-3 text-xs font-medium hover:bg-destructive/10 hover:border-destructive/50 transition-all duration-200"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleInvitationReject(metadata.invitationId)
+                                }}
+                                disabled={isLoading}
+                              >
+                                {isLoading ? (
+                                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                ) : (
+                                  <X className="h-3.5 w-3.5 mr-1.5" />
+                                )}
+                                Decline
+                              </Button>
+                            </div>
+                          )}
+                          {notification.type === "invitation" && isInvitationExpired && (
+                            <div className="flex items-center gap-2 ml-2">
+                              <span className="text-xs text-destructive font-medium">Expired</span>
                             </div>
                           )}
                         </div>

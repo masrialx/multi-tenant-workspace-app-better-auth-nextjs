@@ -82,18 +82,19 @@ export async function POST(request: Request) {
       return notFoundResponse("Organization")
     }
 
-    // Check if user exists
+    // Check if user exists in database
     const invitedUser = await prisma.user.findUnique({
       where: { email: data.email },
     })
 
+    // User must exist before sending invitation
     if (!invitedUser) {
       return notFoundResponse("User with this email address")
     }
 
     // Prevent inviting yourself
     if (invitedUser.id === user.id) {
-      return badRequestResponse("You are already a member of this organization", "ALREADY_MEMBER")
+      return badRequestResponse("You cannot invite yourself", "CANNOT_INVITE_SELF")
     }
 
     // Check if already a member
@@ -115,26 +116,177 @@ export async function POST(request: Request) {
       return badRequestResponse("Cannot invite additional owners. Only one owner is allowed per organization.", "INVALID_ROLE")
     }
 
-    // Add member
-    const member = await prisma.organizationMember.create({
-      data: {
+    // Check if there's already a pending, non-expired invitation for this email
+    const existingInvitation = await prisma.invitation.findFirst({
+      where: {
         organizationId: data.orgId,
-        userId: invitedUser.id,
-        role: data.role,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-          },
+        email: data.email,
+        status: "pending",
+        expiresAt: {
+          gt: new Date(),
         },
       },
     })
 
-    return successResponse({ member }, "Member invited successfully")
+    if (existingInvitation) {
+      return badRequestResponse("An invitation has already been sent to this email address", "INVITATION_EXISTS")
+    }
+
+    // If there's an expired or rejected invitation, mark it as such and allow resending
+    const oldInvitation = await prisma.invitation.findFirst({
+      where: {
+        organizationId: data.orgId,
+        email: data.email,
+        OR: [
+          { status: "expired" },
+          { status: "rejected" },
+          {
+            status: "pending",
+            expiresAt: {
+              lte: new Date(),
+            },
+          },
+        ],
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+
+    // Mark expired pending invitations as expired
+    if (oldInvitation && oldInvitation.status === "pending" && oldInvitation.expiresAt <= new Date()) {
+      await prisma.invitation.update({
+        where: { id: oldInvitation.id },
+        data: { status: "expired" },
+      })
+    }
+
+    // Create invitation (expires in 7 days)
+    const expiresAt = new Date()
+    expiresAt.setDate(expiresAt.getDate() + 7)
+
+    const invitation = await prisma.invitation.create({
+      data: {
+        organizationId: data.orgId,
+        email: data.email,
+        role: data.role || "member",
+        inviterId: user.id,
+        expiresAt,
+      },
+    })
+
+    // Calculate days until expiration for display
+    const daysUntilExpiration = Math.ceil(
+      (invitation.expiresAt.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+    )
+
+    // Create notification for the invited user
+    // This is critical - user must receive notification
+    try {
+      // Check if there's already an unread invitation notification for this user and organization
+      const existingNotification = await prisma.notification.findFirst({
+        where: {
+          userId: invitedUser.id,
+          type: "invitation",
+          read: false,
+          metadata: {
+            contains: `"organizationId":"${organization.id}"`,
+          },
+        },
+      })
+
+      // If notification exists, update it with new invitation ID, otherwise create new
+      if (existingNotification) {
+        await prisma.notification.update({
+          where: { id: existingNotification.id },
+          data: {
+            title: "Organization Invitation",
+            message: `You have been invited to join "${organization.name}" (expires in ${daysUntilExpiration} day${daysUntilExpiration !== 1 ? 's' : ''})`,
+            metadata: JSON.stringify({
+              organizationId: organization.id,
+              organizationName: organization.name,
+              invitationId: invitation.id,
+              inviterId: user.id,
+              inviterName: user.name || user.email,
+              expiresAt: invitation.expiresAt.toISOString(),
+              daysUntilExpiration,
+            }),
+            read: false, // Mark as unread
+            updatedAt: new Date(),
+          },
+        })
+        console.log(`✅ Notification updated successfully:`, {
+          notificationId: existingNotification.id,
+          userId: invitedUser.id,
+          userEmail: invitedUser.email,
+          invitationId: invitation.id,
+        })
+      } else {
+        const notification = await prisma.notification.create({
+          data: {
+            type: "invitation",
+            title: "Organization Invitation",
+            message: `You have been invited to join "${organization.name}" (expires in ${daysUntilExpiration} day${daysUntilExpiration !== 1 ? 's' : ''})`,
+            userId: invitedUser.id,
+            metadata: JSON.stringify({
+              organizationId: organization.id,
+              organizationName: organization.name,
+              invitationId: invitation.id,
+              inviterId: user.id,
+              inviterName: user.name || user.email,
+              expiresAt: invitation.expiresAt.toISOString(),
+              daysUntilExpiration,
+            }),
+          },
+        })
+        console.log(`✅ Notification created successfully:`, {
+          notificationId: notification.id,
+          userId: invitedUser.id,
+          userEmail: invitedUser.email,
+          type: notification.type,
+          invitationId: invitation.id,
+        })
+      }
+    } catch (notificationError: any) {
+      // Log detailed error but don't fail the request
+      // Email will still be sent, but notification is important
+      console.error("❌ CRITICAL: Failed to create/update notification for invitation:", {
+        error: notificationError.message,
+        errorCode: notificationError.code,
+        userId: invitedUser.id,
+        userEmail: invitedUser.email,
+        invitationId: invitation.id,
+        organizationId: organization.id,
+        stack: notificationError.stack,
+      })
+      // Continue - invitation and email will still be sent
+      // But this should be investigated
+    }
+
+    // Send invitation email
+    try {
+      const { sendEmail } = await import("@/lib/email")
+      const { getOrganizationInvitationTemplate } = await import("@/lib/email-templates")
+      
+      const invitationLink = `${process.env.BETTER_AUTH_URL || "http://localhost:3000"}/workspace?invitation=${invitation.id}`
+      const expiresIn = `${daysUntilExpiration} day${daysUntilExpiration !== 1 ? 's' : ''}`
+      
+      await sendEmail({
+        to: data.email,
+        subject: `You've been invited to join ${organization.name}`,
+        text: `Hi,\n\nYou have been invited to join the organization "${organization.name}".\n\nClick the link below to accept the invitation:\n${invitationLink}\n\nThis invitation will expire in ${expiresIn}. Please accept it before it expires.\n\nIf you did not expect this invitation, you can safely ignore it.\n\nThanks.`,
+        html: getOrganizationInvitationTemplate(organization.name, invitationLink, expiresIn),
+      })
+      console.log(`✅ Invitation email sent to ${data.email}`)
+    } catch (emailError: any) {
+      console.error("❌ Failed to send invitation email:", emailError)
+      // Don't fail the request if email fails
+    }
+
+    return successResponse(
+      { invitation: { id: invitation.id, email: invitation.email, status: invitation.status } },
+      "Invitation sent successfully. The user will be notified."
+    )
   } catch (error) {
     return handleApiError(error)
   }
