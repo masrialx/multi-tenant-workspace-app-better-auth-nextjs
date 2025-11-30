@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useSession } from "@/lib/auth-client"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,33 +13,109 @@ export function EmailVerificationBanner() {
   const [isEmailVerified, setIsEmailVerified] = useState(true)
   const [isSending, setIsSending] = useState(false)
   const [isSent, setIsSent] = useState(false)
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    const checkVerificationStatus = async () => {
-      if (!session?.user) return
+    if (!session?.user) {
+      setIsEmailVerified(true)
+      return
+    }
 
+    const checkVerificationStatus = async () => {
       try {
-        const response = await fetch(`/api/user/verification-status`)
+        const response = await fetch(`/api/user/verification-status`, {
+          cache: "no-store",
+        })
         if (response.ok) {
-          const data = await response.json()
-          setIsEmailVerified(data.emailVerified || false)
-          if (data.emailVerified) {
+          const result = await response.json()
+          // API returns { success: true, data: { emailVerified: boolean } }
+          const verified = result.data?.emailVerified || false
+          setIsEmailVerified(verified)
+          
+          if (verified) {
             setIsSent(false) // Reset sent state if verified
+            // Clear any existing polling interval
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current)
+              intervalRef.current = null
+            }
+            return true // Email is verified
           }
+          return false // Email is not verified
         }
       } catch (error) {
         console.error("Error checking verification status:", error)
       }
+      return false
     }
 
-    checkVerificationStatus()
-    
-    // Poll for verification status every 5 seconds if not verified
-    if (!isEmailVerified) {
-      const interval = setInterval(checkVerificationStatus, 5000)
-      return () => clearInterval(interval)
+    // Initial check
+    checkVerificationStatus().then((verified) => {
+      // Only set up polling if email is not verified
+      if (!verified && !intervalRef.current) {
+        intervalRef.current = setInterval(async () => {
+          const isVerified = await checkVerificationStatus()
+          if (isVerified && intervalRef.current) {
+            clearInterval(intervalRef.current)
+            intervalRef.current = null
+          }
+        }, 5000)
+      }
+    })
+
+    // Cleanup function
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
     }
-  }, [session, isEmailVerified])
+  }, [session?.user?.id]) // Only depend on user ID, not the entire session or isEmailVerified
+
+  // Check verification status when window gains focus or becomes visible (user returns from email)
+  useEffect(() => {
+    if (!session?.user) return
+
+    const checkStatus = async () => {
+      try {
+        const response = await fetch(`/api/user/verification-status`, {
+          cache: "no-store",
+        })
+        if (response.ok) {
+          const result = await response.json()
+          // API returns { success: true, data: { emailVerified: boolean } }
+          const verified = result.data?.emailVerified || false
+          setIsEmailVerified(verified)
+          
+          if (verified) {
+            setIsSent(false)
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current)
+              intervalRef.current = null
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error checking verification status on focus:", error)
+      }
+    }
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        checkStatus()
+      }
+    }
+
+    // Check when window gains focus
+    window.addEventListener("focus", checkStatus)
+    // Check when page becomes visible (user switches back to tab)
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener("focus", checkStatus)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
+  }, [session?.user?.id])
 
   const handleSendVerification = async () => {
     setIsSending(true)
