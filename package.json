@@ -5,7 +5,8 @@
   "scripts": {
     "build": "next build",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma  migrate dev",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "node scripts/seed.js",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",

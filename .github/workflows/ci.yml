@@ -28,12 +28,15 @@ jobs:
         run: npm run db:generate
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://user:password@localhost:5432/db' }}
+        continue-on-error: false
 
       - name: Run ESLint
         run: npm run lint
+        continue-on-error: false
 
       - name: Type check
         run: npx tsc --noEmit
+        continue-on-error: false
 
   build:
     name: Build Application
@@ -57,11 +60,14 @@ jobs:
         run: npm run db:generate
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://user:password@localhost:5432/db' }}
+        continue-on-error: false
 
       - name: Build Next.js app
         run: npm run build
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://user:password@localhost:5432/db' }}
-          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET || 'dummy-secret-for-build' }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET || 'dummy-secret-for-build-min-32-chars' }}
           BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL || 'http://localhost:3000' }}
+          NODE_ENV: production
+        continue-on-error: false
 
