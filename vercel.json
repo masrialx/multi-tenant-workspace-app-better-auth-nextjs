@@ -1,0 +1,10 @@
+{
+  "buildCommand": null,
+  "devCommand": null,
+  "installCommand": null,
+  "framework": "nextjs",
+  "git": {
+    "deploymentEnabled": false
+  }
+}
+
