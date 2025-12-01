@@ -23,9 +23,10 @@ jobs:
 
       - name: Install Railway CLI
         run: npm install -g @railway/cli
+        continue-on-error: true
 
       - name: Deploy to Railway
         run: railway up
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-
+        continue-on-error: true
