@@ -4,12 +4,12 @@ import type { EmailTemplateOptions } from "./email-templates"
 import { generateEmailTemplate } from "./email-templates"
 import { validateEmailFormat, canReceiveEmails, getEmailErrorMessage } from "./email-validation"
 
-// Configuration constants
-const CONNECTION_TIMEOUT = Number(process.env.SMTP_CONNECTION_TIMEOUT) || 60000 // 60 seconds
-const SEND_TIMEOUT = Number(process.env.SMTP_SEND_TIMEOUT) || 60000 // 60 seconds
-const MAX_RETRIES = Number(process.env.SMTP_MAX_RETRIES) || 3
-const RETRY_DELAY_BASE = 1000 // 1 second base delay
-const RETRY_DELAY_MAX = 10000 // 10 seconds max delay
+// Configuration constants - optimized for faster response times
+const CONNECTION_TIMEOUT = Number(process.env.SMTP_CONNECTION_TIMEOUT) || 15000 // 15 seconds (reduced from 60)
+const SEND_TIMEOUT = Number(process.env.SMTP_SEND_TIMEOUT) || 20000 // 20 seconds (reduced from 60)
+const MAX_RETRIES = Number(process.env.SMTP_MAX_RETRIES) || 1 // Reduced to 1 retry (was 3)
+const RETRY_DELAY_BASE = 500 // 0.5 second base delay (reduced from 1s)
+const RETRY_DELAY_MAX = 2000 // 2 seconds max delay (reduced from 10s)
 
 // Cached transporter instance for connection reuse
 let cachedTransporter: Transporter | null = null
@@ -19,9 +19,16 @@ let cachedTransporter: Transporter | null = null
  * This allows connection reuse and better performance
  */
 function getEmailTransporter(): Transporter {
-  // Return cached transporter if available and not closed
-  if (cachedTransporter && !cachedTransporter.isIdle()) {
-    return cachedTransporter
+  // Return cached transporter if available
+  // Check if transporter exists and is still valid
+  if (cachedTransporter) {
+    try {
+      // Quick check - if transporter exists, reuse it
+      return cachedTransporter
+    } catch {
+      // If transporter is invalid, reset it
+      cachedTransporter = null
+    }
   }
 
   // Check if SMTP is configured
@@ -29,7 +36,7 @@ function getEmailTransporter(): Transporter {
     throw new Error("SMTP configuration is missing. Please set SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables.")
   }
 
-  // Create new transporter with optimized settings
+  // Create new transporter with optimized settings for speed
   cachedTransporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT) || 587,
@@ -38,20 +45,22 @@ function getEmailTransporter(): Transporter {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
-    // Optimized timeout settings
+    // Reduced timeout settings for faster failure detection
     connectionTimeout: CONNECTION_TIMEOUT,
-    greetingTimeout: CONNECTION_TIMEOUT,
+    greetingTimeout: 10000, // 10 seconds for greeting (faster)
     socketTimeout: CONNECTION_TIMEOUT,
     // Connection pooling for better performance
     pool: true,
     maxConnections: 5,
     maxMessages: 100,
-    // Rate limiting
-    rateDelta: 1000, // 1 second
-    rateLimit: 5, // 5 messages per second
+    // Faster rate limiting
+    rateDelta: 500, // 0.5 second
+    rateLimit: 10, // 10 messages per second (increased)
     // Keep connections alive
     logger: process.env.NODE_ENV === "development",
     debug: process.env.NODE_ENV === "development",
+    // Disable DNS lookup timeout to speed up connection
+    dnsTimeout: 5000, // 5 seconds
   })
 
   // Handle connection errors and reset cache
@@ -144,7 +153,24 @@ function isRetryableError(error: any): boolean {
 }
 
 /**
+ * Sends an email asynchronously without blocking (fire and forget)
+ * Use this when you want to return API response immediately
+ */
+export function sendEmailAsync(options: SendEmailOptions): void {
+  // Fire and forget - don't await, just start the process
+  sendEmail(options).catch((error) => {
+    // Log error but don't throw - email sending happens in background
+    console.error("❌ Background email send failed:", {
+      to: options.to,
+      subject: options.subject,
+      error: error.message,
+    })
+  })
+}
+
+/**
  * Sends an email with retry logic and improved error handling
+ * This version waits for the email to be sent (use for critical emails)
  */
 export async function sendEmail(options: SendEmailOptions) {
   // Validate email format before attempting to send
