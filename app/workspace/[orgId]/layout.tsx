@@ -65,16 +65,16 @@ export default function WorkspaceLayout({
   }
 
   return (
-    <SidebarProvider defaultOpen={true}>
-      <div className="flex h-screen w-full">
+    <SidebarProvider defaultOpen={false}>
+      <div className="flex h-screen w-full overflow-hidden">
         <Sidebar className="border-r">
-          <SidebarHeader className="border-b p-4">
-            <div className="flex items-center justify-between">
-              <Link href="/workspace" className="font-bold text-lg hover:opacity-80 flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                Workspace
+          <SidebarHeader className="border-b p-3 sm:p-4 min-w-0">
+            <div className="flex items-center justify-between gap-2 min-w-0">
+              <Link href="/workspace" className="font-bold text-base sm:text-lg hover:opacity-80 flex items-center gap-2 min-w-0">
+                <Building2 className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                <span className="hidden sm:inline truncate">Workspace</span>
               </Link>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                 <Notifications />
                 <ThemeToggle />
               </div>
@@ -100,35 +100,37 @@ export default function WorkspaceLayout({
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
-          <div className="border-t p-4 mt-auto">
-            <div className="text-sm font-medium mb-2">{session?.user.email}</div>
+          <div className="border-t p-3 sm:p-4 mt-auto min-w-0">
+            <div className="text-xs sm:text-sm font-medium mb-2 truncate" title={session?.user.email || undefined}>{session?.user.email}</div>
             <Button 
               variant="outline" 
               size="sm" 
               onClick={handleLogout} 
               disabled={isLoggingOut}
-              className="w-full bg-transparent gap-2"
+              className="w-full bg-transparent gap-2 text-xs sm:text-sm"
             >
               {isLoggingOut ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Signing Out...
+                  <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
+                  <span className="hidden sm:inline">Signing Out...</span>
+                  <span className="sm:hidden">Out...</span>
                 </>
               ) : (
                 <>
-                  <LogOut className="w-4 h-4" />
-                  Sign Out
+                  <LogOut className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Sign Out</span>
+                  <span className="sm:hidden">Out</span>
                 </>
               )}
             </Button>
           </div>
         </Sidebar>
-        <main className="flex-1 overflow-auto relative bg-gradient-to-br from-background via-background to-muted/5">
-          <div className="absolute top-4 left-4 z-20">
+        <main className="flex-1 overflow-auto relative bg-gradient-to-br from-background via-background to-muted/5 min-w-0">
+          <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-20">
             <SidebarTrigger />
           </div>
-          <div className="min-h-full">
-            <div className="px-4 py-4">
+          <div className="min-h-full w-full max-w-full overflow-x-hidden">
+            <div className="px-2 sm:px-4 py-2 sm:py-4">
               <EmailVerificationBanner />
             </div>
             {children}

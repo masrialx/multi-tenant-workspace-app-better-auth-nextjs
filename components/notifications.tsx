@@ -388,7 +388,7 @@ export function Notifications() {
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-[420px] p-0 shadow-2xl border-2 bg-card/95 backdrop-blur-sm" 
+        className="w-[calc(100vw-2rem)] sm:w-[420px] p-0 shadow-2xl border-2 bg-card/95 backdrop-blur-sm" 
         align="end"
         sideOffset={8}
       >

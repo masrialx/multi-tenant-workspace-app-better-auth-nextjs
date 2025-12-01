@@ -13,6 +13,11 @@ export const metadata: Metadata = {
   title: "Workspace App",
   description: "Multi-tenant workspace application with better-auth",
   generator: "v0.app",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 5,
+  },
   icons: {
     icon: [
       {
@@ -38,8 +43,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`font-sans antialiased`}>
+    <html lang="en" suppressHydrationWarning className="overflow-x-hidden">
+      <body className={`font-sans antialiased overflow-x-hidden max-w-full`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

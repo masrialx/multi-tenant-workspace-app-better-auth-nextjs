@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useSession } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
@@ -313,23 +314,24 @@ export default function OutlineTablePage() {
   }
 
   return (
-    <div className="flex-1 p-8">
-      <div className="flex items-center justify-between mb-8">
+    <div className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 w-full max-w-full overflow-x-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
         <div className="space-y-1">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
             Outlines
           </h1>
-          <p className="text-muted-foreground">Manage your project outlines and track progress</p>
+          <p className="text-muted-foreground text-sm sm:text-base">Manage your project outlines and track progress</p>
         </div>
         {isOrgOwner && (
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
-              <Button onClick={() => handleOpenSheet()} className="shadow-lg hover:shadow-xl transition-all">
+              <Button onClick={() => handleOpenSheet()} className="shadow-lg hover:shadow-xl transition-all w-full sm:w-auto">
                 <Plus className="w-4 h-4 mr-2" />
-                Add Outline
+                <span className="hidden sm:inline">Add Outline</span>
+                <span className="sm:hidden">Add</span>
               </Button>
             </SheetTrigger>
-          <SheetContent className="w-[400px] px-4 sm:w-[500px] sm:px-6">
+          <SheetContent className="w-[calc(100vw-2rem)] sm:w-[400px] lg:w-[500px] px-4 sm:px-6">
             <SheetHeader>
               <SheetTitle>{editingId ? "Edit Outline" : "Add New Outline"}</SheetTitle>
               <SheetDescription>
@@ -472,40 +474,91 @@ export default function OutlineTablePage() {
           </div>
         </div>
       ) : (
-        <div className="rounded-xl border-2 shadow-lg overflow-hidden bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead>Header</TableHead>
-                <TableHead>Section Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Target</TableHead>
-                <TableHead className="text-right">Limit</TableHead>
-                <TableHead>Reviewer</TableHead>
-                {isOrgOwner && <TableHead className="text-right">Actions</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {outlines.map((outline) => (
-                <TableRow key={outline.id}>
-                  <TableCell className="font-medium">{outline.header}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{outline.sectionType}</TableCell>
-                  <TableCell>
-                    <span className={`text-xs font-medium px-2 py-1 rounded ${getStatusColor(outline.status)}`}>
-                      {outline.status}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">{outline.target}</TableCell>
-                  <TableCell className="text-right">{outline.limit}</TableCell>
-                  <TableCell className="text-sm">{outline.reviewer}</TableCell>
-                  {isOrgOwner && (
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
+        <>
+          {/* Desktop Table View */}
+          <div className="hidden lg:block rounded-xl border-2 shadow-lg overflow-hidden bg-card w-full">
+            <div className="overflow-x-auto w-full">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="min-w-[150px]">Header</TableHead>
+                    <TableHead className="min-w-[120px]">Section Type</TableHead>
+                    <TableHead className="min-w-[100px]">Status</TableHead>
+                    <TableHead className="text-right min-w-[80px]">Target</TableHead>
+                    <TableHead className="text-right min-w-[80px]">Limit</TableHead>
+                    <TableHead className="min-w-[100px]">Reviewer</TableHead>
+                    {isOrgOwner && <TableHead className="text-right min-w-[100px]">Actions</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {outlines.map((outline) => (
+                    <TableRow key={outline.id}>
+                      <TableCell className="font-medium max-w-[200px] truncate" title={outline.header}>{outline.header}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate" title={outline.sectionType}>{outline.sectionType}</TableCell>
+                      <TableCell>
+                        <span className={`text-xs font-medium px-2 py-1 rounded ${getStatusColor(outline.status)}`}>
+                          {outline.status}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">{outline.target}</TableCell>
+                      <TableCell className="text-right">{outline.limit}</TableCell>
+                      <TableCell className="text-sm max-w-[120px] truncate" title={outline.reviewer}>{outline.reviewer}</TableCell>
+                      {isOrgOwner && (
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleOpenSheet(outline)}
+                              disabled={isSaving || deletingId !== null}
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleDeleteOutline(outline.id)}
+                              disabled={isSaving || deletingId !== null}
+                            >
+                              {deletingId === outline.id ? (
+                                <Loader2 className="w-4 h-4 text-destructive animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              )}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="lg:hidden space-y-4 w-full">
+            {outlines.map((outline) => (
+              <Card key={outline.id} className="border-2 shadow-lg w-full overflow-hidden">
+                <CardHeader className="min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <CardTitle className="text-lg mb-2 truncate" title={outline.header}>{outline.header}</CardTitle>
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <span className={`text-xs font-medium px-2 py-1 rounded ${getStatusColor(outline.status)} whitespace-nowrap`}>
+                          {outline.status}
+                        </span>
+                        <span className="text-xs text-muted-foreground truncate" title={outline.sectionType}>{outline.sectionType}</span>
+                      </div>
+                    </div>
+                    {isOrgOwner && (
+                      <div className="flex items-center gap-2 ml-2">
                         <Button 
                           variant="ghost" 
                           size="sm" 
                           onClick={() => handleOpenSheet(outline)}
                           disabled={isSaving || deletingId !== null}
+                          className="h-8 w-8 p-0"
                         >
                           <Edit2 className="w-4 h-4" />
                         </Button>
@@ -514,6 +567,7 @@ export default function OutlineTablePage() {
                           size="sm" 
                           onClick={() => handleDeleteOutline(outline.id)}
                           disabled={isSaving || deletingId !== null}
+                          className="h-8 w-8 p-0"
                         >
                           {deletingId === outline.id ? (
                             <Loader2 className="w-4 h-4 text-destructive animate-spin" />
@@ -522,13 +576,29 @@ export default function OutlineTablePage() {
                           )}
                         </Button>
                       </div>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground text-xs mb-1">Target</p>
+                      <p className="font-medium">{outline.target}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs mb-1">Limit</p>
+                      <p className="font-medium">{outline.limit}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-muted-foreground text-xs mb-1">Reviewer</p>
+                      <p className="font-medium">{outline.reviewer}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
       )}
     </div>
   )

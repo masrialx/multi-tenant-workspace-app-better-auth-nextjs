@@ -408,43 +408,45 @@ function WorkspaceContent() {
       <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
       
-      <div className="container mx-auto px-4 py-8 relative z-10">
+      <div className="w-full max-w-full mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 relative z-10 overflow-x-hidden">
         <EmailVerificationBanner />
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
           <div className="space-y-1">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <div className="p-2 rounded-lg bg-primary/10">
-                <Building2 className="h-6 w-6 text-primary" />
+                <Building2 className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
               </div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
                 Workspaces
               </h1>
             </div>
-            <p className="text-muted-foreground text-lg">Manage your organizations and teams</p>
+            <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">Manage your organizations and teams</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <Notifications />
             <ThemeToggle />
-            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card border">
-              <span className="text-sm font-medium">{session?.user.email}</span>
+            <div className="hidden sm:flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-card border">
+              <span className="text-xs sm:text-sm font-medium truncate max-w-[150px] lg:max-w-none">{session?.user.email}</span>
             </div>
             <Button 
               variant="outline" 
               size="sm" 
               onClick={handleLogout} 
               disabled={isLoggingOut}
-              className="shadow-sm"
+              className="shadow-sm text-xs sm:text-sm"
             >
               {isLoggingOut ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Signing Out...
+                  <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 animate-spin" />
+                  <span className="hidden sm:inline">Signing Out...</span>
+                  <span className="sm:hidden">Out...</span>
                 </>
               ) : (
                 <>
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign Out
+                  <LogOut className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Sign Out</span>
+                  <span className="sm:hidden">Out</span>
                 </>
               )}
             </Button>
@@ -452,23 +454,25 @@ function WorkspaceContent() {
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-3 mb-8">
+        <div className="flex flex-col sm:flex-row gap-3 mb-6 sm:mb-8">
           <Button 
             onClick={() => setIsCreateDialogOpen(true)} 
             size="lg"
-            className="shadow-lg hover:shadow-xl transition-all duration-200"
+            className="w-full sm:w-auto shadow-lg hover:shadow-xl transition-all duration-200"
           >
             <Plus className="w-4 h-4 mr-2" />
-            Create Organization
+            <span className="hidden sm:inline">Create Organization</span>
+            <span className="sm:hidden">Create</span>
           </Button>
           <Button 
             variant="outline" 
             onClick={() => setIsJoinDialogOpen(true)}
             size="lg"
-            className="shadow-sm hover:shadow-md transition-all duration-200"
+            className="w-full sm:w-auto shadow-sm hover:shadow-md transition-all duration-200"
           >
             <Users className="w-4 h-4 mr-2" />
-            Join Organization
+            <span className="hidden sm:inline">Join Organization</span>
+            <span className="sm:hidden">Join</span>
           </Button>
         </div>
 
@@ -480,8 +484,8 @@ function WorkspaceContent() {
             </div>
           </div>
         ) : !organizations || organizations.length === 0 ? (
-          <Card className="border-2 shadow-xl">
-            <CardContent className="flex flex-col items-center justify-center py-16">
+          <Card className="border-2 shadow-xl w-full overflow-hidden">
+            <CardContent className="flex flex-col items-center justify-center py-12 sm:py-16 px-4">
               <div className="p-4 rounded-full bg-primary/10 mb-4">
                 <Sparkles className="h-10 w-10 text-primary" />
               </div>
@@ -500,10 +504,10 @@ function WorkspaceContent() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {organizations.map((org) => (
-              <Card key={org.id} className="hover:shadow-xl transition-all duration-300 border-2 hover:border-primary/20 h-full group relative">
-                <CardHeader className="pb-3">
+              <Card key={org.id} className="hover:shadow-xl transition-all duration-300 border-2 hover:border-primary/20 h-full group relative overflow-hidden">
+                <CardHeader className="pb-3 min-w-0">
                   <div className="flex items-start justify-between mb-2">
                     <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
                       <Building2 className="h-5 w-5 text-primary" />
@@ -529,11 +533,11 @@ function WorkspaceContent() {
                       </span>
                     </div>
                   </div>
-                  <CardTitle className="text-xl group-hover:text-primary transition-colors">
+                  <CardTitle className="text-lg sm:text-xl group-hover:text-primary transition-colors truncate" title={org.name}>
                     {org.name}
                   </CardTitle>
                   <CardDescription className="flex items-center gap-1.5 mt-1">
-                    <span className="text-xs font-mono">{org.slug}</span>
+                    <span className="text-xs font-mono truncate" title={org.slug}>{org.slug}</span>
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -551,7 +555,7 @@ function WorkspaceContent() {
 
       {/* Create Organization Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-md mx-4 sm:mx-auto">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 rounded-lg bg-primary/10">
@@ -597,7 +601,7 @@ function WorkspaceContent() {
 
       {/* Join Organization Dialog */}
       <Dialog open={isJoinDialogOpen} onOpenChange={setIsJoinDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-md mx-4 sm:mx-auto">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 rounded-lg bg-primary/10">

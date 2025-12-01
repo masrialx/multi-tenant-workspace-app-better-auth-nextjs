@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useSession } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
@@ -245,20 +246,20 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="flex-1 p-8">
-      <div className="flex items-center justify-between mb-8">
+    <div className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 w-full max-w-full overflow-x-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
         <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
               Team
             </h1>
             {organization && (
-              <div className="px-4 py-2 rounded-lg bg-primary/10 border border-primary/20">
-                <span className="text-sm font-semibold text-primary">{organization.name}</span>
+              <div className="px-3 sm:px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 inline-block">
+                <span className="text-xs sm:text-sm font-semibold text-primary">{organization.name}</span>
               </div>
             )}
           </div>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm sm:text-base">
             {organization 
               ? `Manage members and permissions for ${organization.name}`
               : "Manage your organization members and permissions"}
@@ -267,14 +268,15 @@ export default function TeamPage() {
         <Sheet open={isOpen} onOpenChange={setIsOpen}>
           <SheetTrigger asChild>
             <Button 
-              className="shadow-lg hover:shadow-xl transition-all"
+              className="shadow-lg hover:shadow-xl transition-all w-full sm:w-auto"
               disabled={!isOrgOwner}
             >
               <Plus className="w-4 h-4 mr-2" />
-              Invite Member
+              <span className="hidden sm:inline">Invite Member</span>
+              <span className="sm:hidden">Invite</span>
             </Button>
           </SheetTrigger>
-          <SheetContent className="w-[400px]">
+          <SheetContent className="w-[calc(100vw-2rem)] sm:w-[400px] px-4 sm:px-6">
             <SheetHeader>
               <SheetTitle>Invite Team Member</SheetTitle>
               <SheetDescription>Invite a new member to your organization</SheetDescription>
@@ -323,58 +325,106 @@ export default function TeamPage() {
           </div>
         </div>
       ) : (
-        <div className="rounded-xl border-2 shadow-lg overflow-hidden bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                {isOrgOwner && <TableHead className="text-right">Actions</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {members.map((member) => (
-                <TableRow key={member.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      {member.user.name}
-                      {member.role === "owner" && <Crown className="w-4 h-4 text-yellow-600" />}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{member.user.email}</TableCell>
-                  <TableCell>
-                    <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${
-                      member.role === "owner" 
-                        ? "bg-primary/10 text-primary border border-primary/20" 
-                        : "bg-muted text-muted-foreground"
-                    }`}>
-                      {member.role === "owner" ? "Owner" : "Member"}
-                    </span>
-                  </TableCell>
-                  {isOrgOwner && (
-                    <TableCell className="text-right">
-                      {member.role !== "owner" && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => handleRemoveMember(member.user.id)}
-                          disabled={removingUserId !== null}
-                        >
-                          {removingUserId === member.user.id ? (
-                            <Loader2 className="w-4 h-4 text-destructive animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4 text-destructive" />
+        <>
+          {/* Desktop Table View */}
+          <div className="hidden lg:block rounded-xl border-2 shadow-lg overflow-hidden bg-card w-full">
+            <div className="overflow-x-auto w-full">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="min-w-[150px]">Name</TableHead>
+                    <TableHead className="min-w-[200px]">Email</TableHead>
+                    <TableHead className="min-w-[100px]">Role</TableHead>
+                    {isOrgOwner && <TableHead className="text-right min-w-[100px]">Actions</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {members.map((member) => (
+                    <TableRow key={member.id}>
+                      <TableCell className="font-medium max-w-[200px]">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="truncate" title={member.user.name || undefined}>{member.user.name}</span>
+                          {member.role === "owner" && <Crown className="w-4 h-4 text-yellow-600 flex-shrink-0" />}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground max-w-[250px] truncate" title={member.user.email}>{member.user.email}</TableCell>
+                      <TableCell>
+                        <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${
+                          member.role === "owner" 
+                            ? "bg-primary/10 text-primary border border-primary/20" 
+                            : "bg-muted text-muted-foreground"
+                        }`}>
+                          {member.role === "owner" ? "Owner" : "Member"}
+                        </span>
+                      </TableCell>
+                      {isOrgOwner && (
+                        <TableCell className="text-right">
+                          {member.role !== "owner" && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleRemoveMember(member.user.id)}
+                              disabled={removingUserId !== null}
+                            >
+                              {removingUserId === member.user.id ? (
+                                <Loader2 className="w-4 h-4 text-destructive animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              )}
+                            </Button>
                           )}
-                        </Button>
+                        </TableCell>
                       )}
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="lg:hidden space-y-4 w-full">
+            {members.map((member) => (
+              <Card key={member.id} className="border-2 shadow-lg w-full overflow-hidden">
+                <CardHeader className="min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <CardTitle className="text-lg mb-2 flex items-center gap-2">
+                        <span className="truncate" title={member.user.name || undefined}>{member.user.name}</span>
+                        {member.role === "owner" && <Crown className="w-4 h-4 text-yellow-600 flex-shrink-0" />}
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground truncate" title={member.user.email}>{member.user.email}</p>
+                    </div>
+                    {isOrgOwner && member.role !== "owner" && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleRemoveMember(member.user.id)}
+                        disabled={removingUserId !== null}
+                        className="h-8 w-8 p-0"
+                      >
+                        {removingUserId === member.user.id ? (
+                          <Loader2 className="w-4 h-4 text-destructive animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${
+                    member.role === "owner" 
+                      ? "bg-primary/10 text-primary border border-primary/20" 
+                      : "bg-muted text-muted-foreground"
+                  }`}>
+                    {member.role === "owner" ? "Owner" : "Member"}
+                  </span>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
       )}
     </div>
   )

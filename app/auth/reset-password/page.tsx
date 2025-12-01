@@ -106,10 +106,10 @@ function ResetPasswordForm() {
             <Lock className="h-6 w-6 text-primary" />
           </div>
         </div>
-        <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+        <CardTitle className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
           Set New Password
         </CardTitle>
-        <CardDescription className="text-base">
+        <CardDescription className="text-sm sm:text-base">
           Enter your new password below
         </CardDescription>
       </CardHeader>
