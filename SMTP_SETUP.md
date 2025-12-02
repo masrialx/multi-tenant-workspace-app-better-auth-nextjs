@@ -78,6 +78,55 @@ After setting up your SMTP configuration:
 3. Check your server logs for any SMTP errors
 4. Check your email inbox (and spam folder)
 
+## Deployment on Render/Serverless Platforms
+
+The email system is now optimized for serverless and containerized environments like Render, Vercel, and AWS Lambda.
+
+### Key Features for Production
+
+- **Automatic environment detection**: Detects serverless/production environments and adjusts settings
+- **Connection pooling disabled**: In serverless environments, connection pooling is disabled for better reliability
+- **Extended timeouts**: Production environments use longer timeouts (30s) to handle network latency
+- **Fresh connections**: Transporter cache is reset more frequently in serverless environments
+- **Better TLS handling**: Explicit STARTTLS configuration for port 587
+
+### Render-Specific Configuration
+
+When deploying to Render, ensure these environment variables are set:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+SMTP_FROM=your-email@gmail.com
+NODE_ENV=production
+```
+
+**Optional environment variables for fine-tuning:**
+
+```env
+# Override default timeouts (in milliseconds)
+SMTP_CONNECTION_TIMEOUT=30000
+SMTP_SEND_TIMEOUT=30000
+
+# Number of retry attempts (default: 2 for production)
+SMTP_MAX_RETRIES=2
+
+# If you have certificate issues, set this to false
+SMTP_REJECT_UNAUTHORIZED=false
+```
+
+### Why Emails Work Locally But Not on Render
+
+Common issues fixed:
+
+1. **Connection pooling**: Disabled in serverless environments (Render doesn't maintain persistent connections)
+2. **Timeouts too short**: Increased from 3s to 30s for production
+3. **TLS/STARTTLS**: Now explicitly configured for proper TLS negotiation
+4. **Transporter caching**: Cache expires faster in serverless environments (1 min vs 5 min)
+
 ## Troubleshooting
 
 ### Emails not being received
@@ -87,12 +136,20 @@ After setting up your SMTP configuration:
 3. **Check spam folder** - Emails might be filtered
 4. **Test SMTP connection** - The app now verifies SMTP connection before sending
 5. **Check firewall** - Ensure port 587 or 465 is not blocked
+6. **Check Render logs** - View deployment logs in Render dashboard for detailed error messages
 
 ### Common Errors
 
 - **EAUTH**: Authentication failed - Check username/password
 - **ECONNECTION**: Connection failed - Check host/port settings
-- **ETIMEDOUT**: Connection timeout - Check network/firewall
+- **ETIMEDOUT**: Connection timeout - Check network/firewall (may need to increase `SMTP_CONNECTION_TIMEOUT`)
+
+### Render/Production-Specific Issues
+
+- **Connection timeouts**: If you see timeout errors, increase `SMTP_CONNECTION_TIMEOUT` to 60000 (60 seconds)
+- **Certificate errors**: If you see TLS/certificate errors, set `SMTP_REJECT_UNAUTHORIZED=false`
+- **Port blocked**: Some providers block port 587, try port 465 with `SMTP_SECURE=true`
+- **Rate limiting**: Production environments have lower rate limits (5 messages/second) to prevent abuse
 
 ### Gmail-Specific Issues
 

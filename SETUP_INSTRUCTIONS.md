@@ -15,6 +15,13 @@ npm install
 
 Create a `.env.local` file in the root directory:
 
+**Option 1: Copy from example file**
+\`\`\`bash
+cp .env.example .env.local
+\`\`\`
+
+**Option 2: Create manually**
+
 \`\`\`env
 # Database
 DATABASE_URL="postgresql://user:password@localhost:5432/workspace_db"
@@ -23,11 +30,18 @@ DATABASE_URL="postgresql://user:password@localhost:5432/workspace_db"
 BETTER_AUTH_URL="http://localhost:3000"
 BETTER_AUTH_SECRET="your-secret-key-min-32-chars-long-please"
 
-# For production:
-# BETTER_AUTH_TRUST_HOST="true"
+# SMTP (Optional - for email features)
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT="587"
+SMTP_SECURE="false"
+SMTP_USER="your-email@gmail.com"
+SMTP_PASS="your-app-password"
+SMTP_FROM="your-email@gmail.com"
 \`\`\`
 
 Replace `user`, `password`, and `workspace_db` with your actual PostgreSQL credentials.
+
+> **Note:** See `.env.example` for a complete list of all available environment variables, including optional SMTP advanced configuration.
 
 ### Generate BETTER_AUTH_SECRET
 

@@ -21,11 +21,20 @@ Vercel is the easiest and most optimized platform for Next.js applications.
      DATABASE_URL=postgresql://user:password@host:5432/dbname
      BETTER_AUTH_SECRET=your-secret-key-here
      BETTER_AUTH_URL=https://your-app.vercel.app
+     BETTER_AUTH_TRUST_HOST=true
      SMTP_HOST=smtp.example.com
      SMTP_PORT=587
+     SMTP_SECURE=false
      SMTP_USER=your-email@example.com
      SMTP_PASS=your-password
      SMTP_FROM=noreply@example.com
+     NODE_ENV=production
+     ```
+   - Optional (for troubleshooting):
+     ```
+     SMTP_CONNECTION_TIMEOUT=30000
+     SMTP_SEND_TIMEOUT=30000
+     SMTP_MAX_RETRIES=2
      ```
 
 3. **Enable GitHub Actions (Optional):**
@@ -132,13 +141,23 @@ Vercel is the easiest and most optimized platform for Next.js applications.
 
 ### Optional Variables (for email)
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `SMTP_HOST` | SMTP server hostname | `smtp.gmail.com` |
-| `SMTP_PORT` | SMTP server port | `587` |
-| `SMTP_USER` | SMTP username | `your-email@gmail.com` |
-| `SMTP_PASS` | SMTP password | `your-app-password` |
-| `SMTP_FROM` | Email sender address | `noreply@your-app.com` |
+| Variable | Description | Example | Default |
+|----------|-------------|---------|---------|
+| `SMTP_HOST` | SMTP server hostname | `smtp.gmail.com` | - |
+| `SMTP_PORT` | SMTP server port | `587` | `587` |
+| `SMTP_SECURE` | Use direct TLS (true for 465, false for 587) | `false` | `false` |
+| `SMTP_USER` | SMTP username | `your-email@gmail.com` | - |
+| `SMTP_PASS` | SMTP password/app password | `your-app-password` | - |
+| `SMTP_FROM` | Email sender address | `noreply@your-app.com` | `SMTP_USER` |
+
+### Advanced SMTP Variables (Optional)
+
+| Variable | Description | Example | Default |
+|----------|-------------|---------|---------|
+| `SMTP_CONNECTION_TIMEOUT` | Connection timeout in ms | `30000` | `30000` (prod), `10000` (dev) |
+| `SMTP_SEND_TIMEOUT` | Send timeout in ms | `30000` | `30000` (prod), `15000` (dev) |
+| `SMTP_MAX_RETRIES` | Maximum retry attempts | `2` | `2` (prod), `1` (dev) |
+| `SMTP_REJECT_UNAUTHORIZED` | Reject unauthorized TLS certs | `false` | `true` |
 
 ## Database Setup
 

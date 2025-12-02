@@ -4,30 +4,54 @@ import type { EmailTemplateOptions } from "./email-templates"
 import { generateEmailTemplate } from "./email-templates"
 import { validateEmailFormat, canReceiveEmails, getEmailErrorMessage } from "./email-validation"
 
-// Configuration constants - optimized for faster response times
-const CONNECTION_TIMEOUT = Number(process.env.SMTP_CONNECTION_TIMEOUT) || 3000 // 15 seconds (reduced from 60)
-const SEND_TIMEOUT = Number(process.env.SMTP_SEND_TIMEOUT) || 3000 // 20 seconds (reduced from 60)
-const MAX_RETRIES = Number(process.env.SMTP_MAX_RETRIES) || 1 // Reduced to 1 retry (was 3)
-const RETRY_DELAY_BASE = 500 // 0.5 second base delay (reduced from 1s)
-const RETRY_DELAY_MAX = 2000 // 2 seconds max delay (reduced from 10s)
+// Detect if we're in a serverless/production environment (Render, Vercel, etc.)
+const isServerless = 
+  process.env.RENDER === "true" || 
+  process.env.VERCEL === "1" || 
+  process.env.AWS_LAMBDA_FUNCTION_NAME !== undefined ||
+  process.env.NODE_ENV === "production"
+
+// Configuration constants - adaptive based on environment
+// Production/serverless environments need longer timeouts due to network latency
+const CONNECTION_TIMEOUT = Number(process.env.SMTP_CONNECTION_TIMEOUT) || (isServerless ? 30000 : 10000) // 30s for production, 10s for dev
+const SEND_TIMEOUT = Number(process.env.SMTP_SEND_TIMEOUT) || (isServerless ? 30000 : 15000) // 30s for production, 15s for dev
+const MAX_RETRIES = Number(process.env.SMTP_MAX_RETRIES) || (isServerless ? 2 : 1) // More retries for production
+const RETRY_DELAY_BASE = 1000 // 1 second base delay
+const RETRY_DELAY_MAX = isServerless ? 5000 : 3000 // 5s max for production, 3s for dev
 
 // Cached transporter instance for connection reuse
+// In serverless environments, we'll create fresh connections more often
 let cachedTransporter: Transporter | null = null
+let transporterCreatedAt: number = 0
+const TRANSPORTER_MAX_AGE = isServerless ? 60000 : 300000 // 1 min for serverless, 5 min for regular
 
 /**
  * Creates or returns a cached email transporter instance
- * This allows connection reuse and better performance
+ * In serverless environments, creates fresh connections more frequently
  */
 function getEmailTransporter(): Transporter {
-  // Return cached transporter if available
-  // Check if transporter exists and is still valid
+  const now = Date.now()
+  
+  // In serverless environments, check if transporter is too old and reset it
+  if (isServerless && cachedTransporter && (now - transporterCreatedAt) > TRANSPORTER_MAX_AGE) {
+    console.log("🔄 Resetting transporter cache (serverless environment)")
+    try {
+      cachedTransporter.close()
+    } catch {
+      // Ignore errors when closing
+    }
+    cachedTransporter = null
+    transporterCreatedAt = 0
+  }
+  
+  // Return cached transporter if available and still valid
   if (cachedTransporter) {
     try {
-      // Quick check - if transporter exists, reuse it
       return cachedTransporter
     } catch {
       // If transporter is invalid, reset it
       cachedTransporter = null
+      transporterCreatedAt = 0
     }
   }
 
@@ -36,38 +60,75 @@ function getEmailTransporter(): Transporter {
     throw new Error("SMTP configuration is missing. Please set SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables.")
   }
 
-  // Create new transporter with optimized settings for speed
-  cachedTransporter = nodemailer.createTransport({
+  const port = Number(process.env.SMTP_PORT) || 587
+  const secure = process.env.SMTP_SECURE === "true"
+  
+  // For port 587, we use STARTTLS (secure: false, but requireTLS: true)
+  // For port 465, we use direct TLS (secure: true)
+  const requireTLS = port === 587 && !secure
+
+  // Create transporter with environment-appropriate settings
+  const transporterConfig: any = {
     host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_SECURE === "true",
+    port: port,
+    secure: secure, // true for 465, false for other ports
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
-    // Reduced timeout settings for faster failure detection
+    // Timeout settings - longer for production/serverless
     connectionTimeout: CONNECTION_TIMEOUT,
-    greetingTimeout: 10000, // 10 seconds for greeting (faster)
+    greetingTimeout: isServerless ? 30000 : 15000, // 30s for production, 15s for dev
     socketTimeout: CONNECTION_TIMEOUT,
-    // Connection pooling for better performance
-    pool: true,
-    maxConnections: 5,
-    maxMessages: 100,
-    // Faster rate limiting
-    rateDelta: 500, // 0.5 second
-    rateLimit: 10, // 10 messages per second (increased)
-    // Keep connections alive
+    // TLS/STARTTLS configuration
+    requireTLS: requireTLS, // Require TLS upgrade for STARTTLS
+    tls: {
+      // Don't reject unauthorized certificates (some providers use self-signed)
+      // Set SMTP_REJECT_UNAUTHORIZED=false if you have certificate issues
+      rejectUnauthorized: process.env.SMTP_REJECT_UNAUTHORIZED !== "false",
+      // Use modern TLS - let Node.js choose appropriate ciphers
+      minVersion: "TLSv1.2",
+    },
+    // Connection pooling - disabled for serverless environments
+    // Pooling doesn't work well in serverless/container environments
+    pool: !isServerless, // Only use pooling in non-serverless environments
+    maxConnections: isServerless ? 1 : 5,
+    maxMessages: isServerless ? 1 : 100,
+    // Rate limiting
+    rateDelta: 1000, // 1 second
+    rateLimit: isServerless ? 5 : 10, // Lower rate for serverless
+    // Logging
     logger: process.env.NODE_ENV === "development",
     debug: process.env.NODE_ENV === "development",
-    // Disable DNS lookup timeout to speed up connection
-    dnsTimeout: 5000, // 5 seconds
-  })
+    // DNS timeout
+    dnsTimeout: isServerless ? 10000 : 5000, // Longer for production
+  }
+
+  cachedTransporter = nodemailer.createTransport(transporterConfig)
+  transporterCreatedAt = now
 
   // Handle connection errors and reset cache
   cachedTransporter.on("error", (error) => {
-    console.error("❌ Transporter error:", error)
+    console.error("❌ Transporter error:", {
+      message: error.message,
+      code: (error as any).code,
+      host: process.env.SMTP_HOST,
+    })
     cachedTransporter = null
+    transporterCreatedAt = 0
   })
+
+  // Log transporter creation
+  if (process.env.NODE_ENV === "development") {
+    console.log("📧 Email transporter created:", {
+      host: process.env.SMTP_HOST,
+      port: port,
+      secure: secure,
+      requireTLS: requireTLS,
+      pooling: !isServerless,
+      serverless: isServerless,
+    })
+  }
 
   return cachedTransporter
 }
@@ -81,7 +142,7 @@ export async function verifyEmailConnection(): Promise<boolean> {
     const transporter = getEmailTransporter()
     const verifyPromise = transporter.verify()
     const timeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error("Connection timeout")), 10000)
+      setTimeout(() => reject(new Error("Connection timeout")), CONNECTION_TIMEOUT)
     )
     
     await Promise.race([verifyPromise, timeoutPromise])
@@ -91,6 +152,8 @@ export async function verifyEmailConnection(): Promise<boolean> {
     console.error("⚠️ SMTP verification failed:", {
       error: error.message,
       code: error.code,
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
     })
     return false
   }

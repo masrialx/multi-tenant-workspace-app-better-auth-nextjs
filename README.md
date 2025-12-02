@@ -180,6 +180,12 @@ SMTP_SECURE="false"
 SMTP_USER="your-email@gmail.com"
 SMTP_PASS="your-app-password"
 SMTP_FROM="your-email@gmail.com"
+
+# Optional SMTP Advanced Configuration (for production/Render)
+# SMTP_CONNECTION_TIMEOUT="30000"  # Connection timeout in ms
+# SMTP_SEND_TIMEOUT="30000"        # Send timeout in ms
+# SMTP_MAX_RETRIES="2"             # Retry attempts
+# SMTP_REJECT_UNAUTHORIZED="false" # Set to false if you have cert issues
 ```
 
 Generate a secure secret:
@@ -529,17 +535,28 @@ vercel
 
 ### Environment Variables
 
-Set in Vercel dashboard:
+Set in Vercel/Render dashboard:
+
+**Required:**
 - `DATABASE_URL` - PostgreSQL connection string
 - `BETTER_AUTH_URL` - Your deployed URL (e.g., https://yourapp.vercel.app)
 - `BETTER_AUTH_SECRET` - Secure 32+ character secret
-- `BETTER_AUTH_TRUST_HOST=true` - Trust host header
-- `SMTP_HOST` - SMTP server hostname
+- `BETTER_AUTH_TRUST_HOST=true` - Trust host header (for production)
+- `NODE_ENV=production` - Set to production
+
+**SMTP (Required for email features):**
+- `SMTP_HOST` - SMTP server hostname (e.g., smtp.gmail.com)
 - `SMTP_PORT` - SMTP port (usually 587)
-- `SMTP_SECURE` - Use TLS (true/false)
+- `SMTP_SECURE` - Use TLS (false for 587, true for 465)
 - `SMTP_USER` - SMTP username
 - `SMTP_PASS` - SMTP password/app password
 - `SMTP_FROM` - From email address
+
+**Optional SMTP (for troubleshooting on Render):**
+- `SMTP_CONNECTION_TIMEOUT` - Connection timeout in ms (default: 30000)
+- `SMTP_SEND_TIMEOUT` - Send timeout in ms (default: 30000)
+- `SMTP_MAX_RETRIES` - Retry attempts (default: 2)
+- `SMTP_REJECT_UNAUTHORIZED` - Reject unauthorized certs (default: true, set to false if needed)
 
 ### Database
 
