@@ -23,6 +23,9 @@ import { signUp } from "@/lib/auth-client"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { UserPlus, AlertTriangle } from "lucide-react"
 
+// Force dynamic rendering to prevent build-time prerendering issues
+export const dynamic = 'force-dynamic'
+
 export default function SignUpPage() {
   const router = useRouter()
   const { toast } = useToast()

@@ -11,6 +11,9 @@ import { useToast } from "@/hooks/use-toast"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Lock, Loader2 } from "lucide-react"
 
+// Force dynamic rendering to prevent build-time prerendering issues
+export const dynamic = 'force-dynamic'
+
 function ResetPasswordForm() {
   const router = useRouter()
   const searchParams = useSearchParams()

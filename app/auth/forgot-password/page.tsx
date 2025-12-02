@@ -11,6 +11,9 @@ import { useToast } from "@/hooks/use-toast"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Mail, Loader2 } from "lucide-react"
 
+// Force dynamic rendering to prevent build-time prerendering issues
+export const dynamic = 'force-dynamic'
+
 export default function ForgotPasswordPage() {
   const router = useRouter()
   const { toast } = useToast()

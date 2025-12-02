@@ -13,6 +13,9 @@ import { signIn } from "@/lib/auth-client"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Sparkles } from "lucide-react"
 
+// Force dynamic rendering to prevent build-time prerendering issues
+export const dynamic = 'force-dynamic'
+
 export default function SignInPage() {
   const router = useRouter()
   const { toast } = useToast()
