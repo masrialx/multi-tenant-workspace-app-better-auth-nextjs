@@ -17,18 +17,16 @@ export async function POST(request: Request) {
     const body = await request.json()
     const data = createOrgSchema.parse(body)
 
-    // Check if the current user already has an organization with the same name
-    // Same user cannot create duplicate organization names, but different users can
-    const userExistingOrg = await prisma.organization.findFirst({
+    // Check if any organization with this name exists globally (unique org names across all users)
+    const existingOrg = await prisma.organization.findFirst({
       where: {
-        ownerId: user.id,
         name: data.name.trim(),
       },
     })
 
-    if (userExistingOrg) {
+    if (existingOrg) {
       return badRequestResponse(
-        "You already have an organization with this name. Please choose a different name.",
+        "An organization with this name already exists. Please choose a different name.",
         "DUPLICATE_ORG_NAME"
       )
     }

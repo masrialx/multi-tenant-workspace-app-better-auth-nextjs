@@ -42,6 +42,8 @@ function WorkspaceContent() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [deletePassword, setDeletePassword] = useState("")
   const [isDeleting, setIsDeleting] = useState(false)
+  const [orgNameExists, setOrgNameExists] = useState(false)
+  const [isCheckingOrgName, setIsCheckingOrgName] = useState(false)
 
   // Handle invitation from email link
   useEffect(() => {
@@ -97,6 +99,60 @@ function WorkspaceContent() {
       fetchOrganizations()
     }
   }, [session, isPending, router])
+
+  // Real-time org name validation with debouncing
+  useEffect(() => {
+    if (!isCreateDialogOpen) {
+      setOrgNameExists(false)
+      setIsCheckingOrgName(false)
+      return
+    }
+
+    const trimmedName = newOrgName.trim()
+    
+    // Reset state if input is empty
+    if (!trimmedName) {
+      setOrgNameExists(false)
+      setIsCheckingOrgName(false)
+      return
+    }
+
+    // Minimum length check before validating
+    if (trimmedName.length < 1) {
+      setOrgNameExists(false)
+      setIsCheckingOrgName(false)
+      return
+    }
+
+    // Debounce the check
+    const timeoutId = setTimeout(async () => {
+      setIsCheckingOrgName(true)
+      try {
+        const response = await fetch(
+          `/api/org/check-name?name=${encodeURIComponent(trimmedName)}`,
+          {
+            method: "GET",
+            credentials: "include",
+          }
+        )
+
+        if (response.ok) {
+          const data = await response.json()
+          setOrgNameExists(data.data?.exists || false)
+        } else {
+          // On error, assume it doesn't exist to allow creation attempt
+          setOrgNameExists(false)
+        }
+      } catch (error) {
+        console.error("Error checking org name:", error)
+        setOrgNameExists(false)
+      } finally {
+        setIsCheckingOrgName(false)
+      }
+    }, 500) // 500ms debounce
+
+    return () => clearTimeout(timeoutId)
+  }, [newOrgName, isCreateDialogOpen])
 
   const handleInvitationFromEmail = async (invitationId: string) => {
     setIsProcessingInvitation(true)
@@ -192,6 +248,16 @@ function WorkspaceContent() {
       return
     }
 
+    // Prevent creation if org name exists
+    if (orgNameExists) {
+      toast({
+        title: "Error",
+        description: "An organization with this name already exists. Please choose a different name.",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsCreating(true)
     try {
       const response = await fetch("/api/org/create", {
@@ -218,6 +284,7 @@ function WorkspaceContent() {
         }
         setOrganizations([...organizations, newOrg])
         setNewOrgName("")
+        setOrgNameExists(false)
         setIsCreateDialogOpen(false)
         toast({
           title: "Success",
@@ -554,7 +621,17 @@ function WorkspaceContent() {
       </div>
 
       {/* Create Organization Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog 
+        open={isCreateDialogOpen} 
+        onOpenChange={(open) => {
+          setIsCreateDialogOpen(open)
+          if (!open) {
+            setNewOrgName("")
+            setOrgNameExists(false)
+            setIsCheckingOrgName(false)
+          }
+        }}
+      >
         <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-md mx-4 sm:mx-auto">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-2">
@@ -575,12 +652,28 @@ function WorkspaceContent() {
                 value={newOrgName}
                 onChange={(e) => setNewOrgName(e.target.value)}
                 disabled={isCreating}
-                className="h-11"
+                className={`h-11 ${orgNameExists ? "border-destructive focus-visible:ring-destructive" : ""}`}
               />
+              {isCheckingOrgName && newOrgName.trim() && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Checking availability...
+                </p>
+              )}
+              {!isCheckingOrgName && orgNameExists && newOrgName.trim() && (
+                <p className="text-xs text-destructive font-medium">
+                  This organization name already exists
+                </p>
+              )}
+              {!isCheckingOrgName && !orgNameExists && newOrgName.trim() && (
+                <p className="text-xs text-green-600 dark:text-green-500 font-medium">
+                  Organization name is available
+                </p>
+              )}
             </div>
             <Button 
               onClick={handleCreateOrganization} 
-              disabled={isCreating} 
+              disabled={isCreating || orgNameExists || isCheckingOrgName || !newOrgName.trim()} 
               className="w-full h-11 shadow-lg hover:shadow-xl transition-all"
             >
               {isCreating ? (

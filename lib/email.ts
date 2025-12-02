@@ -5,8 +5,8 @@ import { generateEmailTemplate } from "./email-templates"
 import { validateEmailFormat, canReceiveEmails, getEmailErrorMessage } from "./email-validation"
 
 // Configuration constants - optimized for faster response times
-const CONNECTION_TIMEOUT = Number(process.env.SMTP_CONNECTION_TIMEOUT) || 15000 // 15 seconds (reduced from 60)
-const SEND_TIMEOUT = Number(process.env.SMTP_SEND_TIMEOUT) || 20000 // 20 seconds (reduced from 60)
+const CONNECTION_TIMEOUT = Number(process.env.SMTP_CONNECTION_TIMEOUT) || 3000 // 15 seconds (reduced from 60)
+const SEND_TIMEOUT = Number(process.env.SMTP_SEND_TIMEOUT) || 3000 // 20 seconds (reduced from 60)
 const MAX_RETRIES = Number(process.env.SMTP_MAX_RETRIES) || 1 // Reduced to 1 retry (was 3)
 const RETRY_DELAY_BASE = 500 // 0.5 second base delay (reduced from 1s)
 const RETRY_DELAY_MAX = 2000 // 2 seconds max delay (reduced from 10s)
