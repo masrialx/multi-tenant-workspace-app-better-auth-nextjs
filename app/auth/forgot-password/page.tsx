@@ -5,7 +5,7 @@
 export const dynamic = 'force-dynamic'
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast"
 import dynamicImport from "next/dynamic"
 import { Mail, Loader2 } from "lucide-react"
+import { isEmailServiceEnabledClient } from "@/lib/email-config"
 
 // Dynamically import ThemeToggle to avoid SSR issues during static export
 const ThemeToggle = dynamicImport(() => import("@/components/theme-toggle").then(mod => ({ default: mod.ThemeToggle })), {
@@ -29,6 +30,24 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isSent, setIsSent] = useState(false)
+  const emailEnabled = isEmailServiceEnabledClient()
+
+  // Redirect to signin if email service is disabled
+  useEffect(() => {
+    if (!emailEnabled) {
+      toast({
+        title: "Email Service Disabled",
+        description: "Password reset via email is not available. Please contact support for assistance.",
+        variant: "destructive",
+      })
+      router.push("/auth/signin")
+    }
+  }, [emailEnabled, router, toast])
+
+  // Don't render the form if email service is disabled
+  if (!emailEnabled) {
+    return null
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

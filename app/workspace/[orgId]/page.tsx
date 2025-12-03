@@ -400,14 +400,15 @@ export default function OutlineTablePage() {
                     className={targetError ? "border-red-500 focus-visible:ring-red-500" : ""}
                     onChange={(e) => {
                       const value = e.target.value
-                      // Allow empty string or any number while typing (including 0)
+                      // Allow empty string - user can clear the field completely
                       if (value === "") {
                         setFormData({ ...formData, target: 0 })
                         setTargetError("")
                         return
                       }
+                      // Allow free typing - parse the value but allow partial input
                       const numValue = Number.parseInt(value, 10)
-                      // Allow any number while typing, including 0
+                      // Allow any number while typing, including 0 and negative
                       if (!Number.isNaN(numValue)) {
                         setFormData({
                           ...formData,
@@ -415,12 +416,15 @@ export default function OutlineTablePage() {
                         })
                         // Show error if negative value
                         if (numValue < 0) {
-                          setTargetError("Value must be positive")
+                          setTargetError("Negative values are not supported")
                         } else if (numValue === 0) {
                           setTargetError("Minimum: 1")
                         } else {
                           setTargetError("")
                         }
+                      } else {
+                        // Allow partial input (e.g., "-", "0.", etc.) - don't update state but allow typing
+                        // This enables free typing while editing
                       }
                     }}
                     onBlur={(e) => {
@@ -469,14 +473,15 @@ export default function OutlineTablePage() {
                     className={limitError ? "border-red-500 focus-visible:ring-red-500" : ""}
                     onChange={(e) => {
                       const value = e.target.value
-                      // Allow empty string or any number while typing (including 0)
+                      // Allow empty string - user can clear the field completely
                       if (value === "") {
                         setFormData({ ...formData, limit: 0 })
                         setLimitError("")
                         return
                       }
+                      // Allow free typing - parse the value but allow partial input
                       const numValue = Number.parseInt(value, 10)
-                      // Allow any number while typing, including 0
+                      // Allow any number while typing, including 0 and negative
                       if (!Number.isNaN(numValue)) {
                         setFormData({
                           ...formData,
@@ -484,12 +489,15 @@ export default function OutlineTablePage() {
                         })
                         // Show error if negative value
                         if (numValue < 0) {
-                          setLimitError("Value must be positive")
+                          setLimitError("Negative values are not supported")
                         } else if (numValue === 0) {
                           setLimitError("Minimum: 1")
                         } else {
                           setLimitError("")
                         }
+                      } else {
+                        // Allow partial input (e.g., "-", "0.", etc.) - don't update state but allow typing
+                        // This enables free typing while editing
                       }
                     }}
                     onBlur={(e) => {

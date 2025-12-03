@@ -122,6 +122,15 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - Delete outlines (click Trash icon)
 - Track status, reviewer, target/limit values
 
+**Target/Limit Input Features:**
+- Full keyboard input support - type freely while editing
+- Field can be completely cleared (delete all characters)
+- Real-time validation with immediate error feedback
+- Shows "Negative values are not supported" error message in red text below input
+- Arrow key support (↑/↓) for quick increment/decrement
+- Minimum value enforcement: values less than 1 are auto-corrected to 1 on field blur
+- Red border and error text for invalid values (negative or zero)
+
 ### Team Management
 - View all organization members
 - Invite new members by email (Owner only)

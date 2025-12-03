@@ -46,11 +46,14 @@ A complete, production-ready multi-tenant workspace application built with **Nex
   - Target & Limit (numeric values with smart input controls)
   - Reviewer Assignment (Assim, Bini, Mami)
 - **Smart Target/Limit Input**:
-  - Keyboard input support with real-time validation
+  - Full keyboard input support with free typing while editing
   - Arrow key increment/decrement (↑/↓)
   - Minimum value enforcement (1, cannot be 0 or negative)
-  - Professional error messages for invalid values
-  - Red border and error text for negative/zero values
+  - Field can be completely cleared (delete all characters)
+  - Real-time validation with immediate error feedback
+  - "Negative values are not supported" error message in red text
+  - Red border and error text for invalid values
+  - Auto-correction to minimum value (1) on field blur
 - **Organization-Scoped** - All outlines belong to specific organizations
 - **Owner-Only Editing** - Only organization owners can create/edit/delete outlines
 - **Status Tracking** - Visual status indicators with color coding

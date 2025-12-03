@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Lock, Loader2 } from "lucide-react"
+import { isEmailServiceEnabledClient } from "@/lib/email-config"
 
 // Force dynamic rendering to prevent build-time prerendering issues
 export const dynamic = 'force-dynamic'
@@ -22,8 +23,20 @@ function ResetPasswordForm() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [token, setToken] = useState<string | null>(null)
+  const emailEnabled = isEmailServiceEnabledClient()
 
   useEffect(() => {
+    // Redirect if email service is disabled
+    if (!emailEnabled) {
+      toast({
+        title: "Email Service Disabled",
+        description: "Password reset via email is not available. Please contact support for assistance.",
+        variant: "destructive",
+      })
+      router.push("/auth/signin")
+      return
+    }
+
     const tokenParam = searchParams.get("token")
     if (!tokenParam) {
       toast({
@@ -35,7 +48,7 @@ function ResetPasswordForm() {
     } else {
       setToken(tokenParam)
     }
-  }, [searchParams, router, toast])
+  }, [searchParams, router, toast, emailEnabled])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -95,6 +108,11 @@ function ResetPasswordForm() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Don't render if email service is disabled
+  if (!emailEnabled) {
+    return null
   }
 
   if (!token) {

@@ -435,8 +435,16 @@ Create a new outline in an organization.
   - "Pending"
   - "In-Progress"
   - "Completed"
-- `target` (number, default: 0): Target value
-- `limit` (number, default: 0): Limit value
+- `target` (number, minimum: 1): Target value (must be positive integer, minimum 1)
+- `limit` (number, minimum: 1): Limit value (must be positive integer, minimum 1)
+
+**Target/Limit Input Behavior:**
+- Supports free keyboard input while editing
+- Field can be completely cleared (empty state allowed during editing)
+- Real-time validation: Shows "Negative values are not supported" error message in red text below input
+- Minimum value enforcement: Values less than 1 are automatically corrected to 1 on field blur
+- Arrow key support: Use ↑/↓ keys for quick increment/decrement
+- Validation: Negative values and zero are not allowed (minimum: 1)
 - `reviewer` (enum, default: "Assim"):
   - "Assim"
   - "Bini"

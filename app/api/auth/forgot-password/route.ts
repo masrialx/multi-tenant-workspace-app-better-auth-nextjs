@@ -5,9 +5,18 @@ import { sendEmail } from "@/lib/email"
 import { getPasswordResetTemplate } from "@/lib/email-templates"
 import { validateEmailFormat, canReceiveEmails, getEmailErrorMessage } from "@/lib/email-validation"
 import { badRequestResponse, notFoundResponse, successResponse, handleApiError } from "@/lib/api-response"
+import { isEmailServiceEnabled } from "@/lib/email-config"
 
 export async function POST(request: Request) {
   try {
+    // Check if email service is enabled
+    if (!isEmailServiceEnabled()) {
+      return badRequestResponse(
+        "Password reset via email is not available. Email service is disabled. Please contact support for assistance.",
+        "EMAIL_SERVICE_DISABLED"
+      )
+    }
+
     const body = await request.json()
     
     // Validate email format first
