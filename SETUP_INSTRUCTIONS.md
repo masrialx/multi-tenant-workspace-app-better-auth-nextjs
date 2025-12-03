@@ -13,43 +13,57 @@ npm install
 
 ## Step 2: Setup Environment Variables
 
-Create a `.env.local` file in the root directory:
+The `.env.local` file is already created with a comprehensive template. Update it with your actual values:
 
-**Option 1: Copy from example file**
-\`\`\`bash
-cp .env.example .env.local
-\`\`\`
-
-**Option 2: Create manually**
+**Required Variables:**
 
 \`\`\`env
-# Database
-DATABASE_URL="postgresql://user:password@localhost:5432/workspace_db"
+# Database Configuration
+DATABASE_URL=postgresql://user:password@localhost:5432/workspace_db
 
-# better-auth Configuration
-BETTER_AUTH_URL="http://localhost:3000"
-BETTER_AUTH_SECRET="your-secret-key-min-32-chars-long-please"
+# Better Auth Configuration
+BETTER_AUTH_SECRET=your-secret-key-here-change-this-in-production
+BETTER_AUTH_URL=http://localhost:3000
+NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:3000
+FRONT_END_URL=http://localhost:3000
 
-# SMTP (Optional - for email features)
-SMTP_HOST="smtp.gmail.com"
-SMTP_PORT="587"
-SMTP_SECURE="false"
-SMTP_USER="your-email@gmail.com"
-SMTP_PASS="your-app-password"
-SMTP_FROM="your-email@gmail.com"
+# Email Service Configuration (default: enabled)
+ENABLE_EMAIL_SERVICE=true
+NEXT_PUBLIC_ENABLE_EMAIL_SERVICE=true
+
+# SMTP Configuration (Required if email service is enabled)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-smtp-password-or-app-password
+SMTP_FROM=your-email@gmail.com
+
+# Node Environment
+NODE_ENV=development
 \`\`\`
 
-Replace `user`, `password`, and `workspace_db` with your actual PostgreSQL credentials.
+**Replace the following:**
+- `user`, `password`, and `workspace_db` in `DATABASE_URL` with your actual PostgreSQL credentials
+- `BETTER_AUTH_SECRET` with a secure random string (see below)
+- SMTP credentials with your email provider settings
+- URLs with your actual deployment URLs (for production)
 
-> **Note:** See `.env.example` for a complete list of all available environment variables, including optional SMTP advanced configuration.
+> **Note:** The `.env.local` file contains detailed comments explaining all variables, including optional SMTP tuning variables for production/serverless environments.
 
 ### Generate BETTER_AUTH_SECRET
 
-Run this to generate a secure secret:
+Run one of these commands to generate a secure secret:
 
 \`\`\`bash
+# Option 1: Using Node.js
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+# Option 2: Using OpenSSL
+openssl rand -base64 32
 \`\`\`
+
+Copy the generated secret and paste it as the value for `BETTER_AUTH_SECRET` in `.env.local`.
 
 ## Step 3: Setup Database
 

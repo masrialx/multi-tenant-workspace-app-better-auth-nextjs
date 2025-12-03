@@ -1,13 +1,22 @@
 "use client"
 
+// Force dynamic rendering to prevent build-time prerendering issues
+// Note: route segment config is limited for client components
+export const dynamic = 'force-dynamic'
+
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Home, ArrowLeft, FileQuestion } from "lucide-react"
 import Link from "next/link"
-import { ThemeToggle } from "@/components/theme-toggle"
+import dynamicImport from "next/dynamic"
 
-// Force dynamic rendering to prevent build-time prerendering issues
-export const dynamic = 'force-dynamic'
+// Dynamically import ThemeToggle to avoid SSR issues during static export
+const ThemeToggle = dynamicImport(() => import("@/components/theme-toggle").then(mod => ({ default: mod.ThemeToggle })), {
+  ssr: false,
+  loading: () => (
+    <div className="h-9 w-9" />
+  ),
+})
 
 export default function NotFound() {
   const router = useRouter()

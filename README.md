@@ -176,35 +176,54 @@ npm install
 
 ### 2. Environment Setup
 
-Create `.env.local` in the project root:
+Create `.env.local` in the project root. A comprehensive template is already created for you with all required and optional variables.
+
+**Quick Setup:**
+1. The `.env.local` file is already created with a complete template
+2. Update the values with your actual configuration:
 
 ```env
-# Database
-DATABASE_URL="postgresql://user:password@localhost:5432/workspace_db"
+# Database Configuration
+DATABASE_URL=postgresql://user:password@localhost:5432/workspace_db
 
-# better-auth
-BETTER_AUTH_URL="http://localhost:3000"
-BETTER_AUTH_SECRET="generate-secure-32-char-key-here"
+# Better Auth Configuration
+BETTER_AUTH_SECRET=your-secret-key-here-change-this-in-production
+BETTER_AUTH_URL=http://localhost:3000
+NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:3000
+FRONT_END_URL=http://localhost:3000
 
-# SMTP (Optional - for email features)
-SMTP_HOST="smtp.gmail.com"
-SMTP_PORT="587"
-SMTP_SECURE="false"
-SMTP_USER="your-email@gmail.com"
-SMTP_PASS="your-app-password"
-SMTP_FROM="your-email@gmail.com"
+# Email Service Configuration (default: enabled)
+ENABLE_EMAIL_SERVICE=true
+NEXT_PUBLIC_ENABLE_EMAIL_SERVICE=true
 
-# Optional SMTP Advanced Configuration (for production/Render)
-# SMTP_CONNECTION_TIMEOUT="30000"  # Connection timeout in ms
-# SMTP_SEND_TIMEOUT="30000"        # Send timeout in ms
-# SMTP_MAX_RETRIES="2"             # Retry attempts
-# SMTP_REJECT_UNAUTHORIZED="false" # Set to false if you have cert issues
+# SMTP Configuration (Required if email service is enabled)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-smtp-password-or-app-password
+SMTP_FROM=your-email@gmail.com
+
+# Node Environment
+NODE_ENV=development
 ```
 
-Generate a secure secret:
+**Generate a secure secret:**
 ```bash
+# Option 1: Using Node.js
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+# Option 2: Using OpenSSL
+openssl rand -base64 32
 ```
+
+**Complete Environment Variables:**
+See `.env.local` for a complete list with detailed comments explaining each variable, including:
+- All required variables
+- Email service feature flags
+- SMTP configuration
+- Optional SMTP tuning variables
+- Platform-specific variables
 
 ### 3. Database Setup
 
@@ -579,9 +598,10 @@ Set in Vercel/Render dashboard:
 
 **Required:**
 - `DATABASE_URL` - PostgreSQL connection string
+- `BETTER_AUTH_SECRET` - Secure 32+ character secret (generate with `openssl rand -base64 32`)
 - `BETTER_AUTH_URL` - Your deployed URL (e.g., https://yourapp.vercel.app)
-- `BETTER_AUTH_SECRET` - Secure 32+ character secret
-- `BETTER_AUTH_TRUST_HOST=true` - Trust host header (for production)
+- `NEXT_PUBLIC_BETTER_AUTH_URL` - Public auth URL (should match BETTER_AUTH_URL)
+- `FRONT_END_URL` - Frontend URL for email links (should match your app URL)
 - `NODE_ENV=production` - Set to production
 
 **SMTP (Required for email features):**

@@ -1,5 +1,9 @@
 "use client"
 
+// Force dynamic rendering to prevent build-time prerendering issues
+// Note: route segment config is limited for client components
+export const dynamic = 'force-dynamic'
+
 import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
@@ -8,11 +12,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { ThemeToggle } from "@/components/theme-toggle"
+import dynamicImport from "next/dynamic"
 import { Mail, Loader2 } from "lucide-react"
 
-// Force dynamic rendering to prevent build-time prerendering issues
-export const dynamic = 'force-dynamic'
+// Dynamically import ThemeToggle to avoid SSR issues during static export
+const ThemeToggle = dynamicImport(() => import("@/components/theme-toggle").then(mod => ({ default: mod.ThemeToggle })), {
+  ssr: false,
+  loading: () => (
+    <div className="h-9 w-9" />
+  ),
+})
 
 export default function ForgotPasswordPage() {
   const router = useRouter()

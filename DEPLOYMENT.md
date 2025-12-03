@@ -16,25 +16,35 @@ Vercel is the easiest and most optimized platform for Next.js applications.
 
 2. **Configure environment variables in Vercel:**
    - Go to Project Settings → Environment Variables
-   - Add the following:
+   - Add the following required variables:
      ```
      DATABASE_URL=postgresql://user:password@host:5432/dbname
      BETTER_AUTH_SECRET=your-secret-key-here
      BETTER_AUTH_URL=https://your-app.vercel.app
-     BETTER_AUTH_TRUST_HOST=true
+     NEXT_PUBLIC_BETTER_AUTH_URL=https://your-app.vercel.app
+     FRONT_END_URL=https://your-app.vercel.app
+     NODE_ENV=production
+     ```
+   - Add email service configuration (default: enabled):
+     ```
+     ENABLE_EMAIL_SERVICE=true
+     NEXT_PUBLIC_ENABLE_EMAIL_SERVICE=true
+     ```
+   - Add SMTP configuration (required if email service is enabled):
+     ```
      SMTP_HOST=smtp.example.com
      SMTP_PORT=587
      SMTP_SECURE=false
      SMTP_USER=your-email@example.com
      SMTP_PASS=your-password
      SMTP_FROM=noreply@example.com
-     NODE_ENV=production
      ```
    - Optional (for troubleshooting):
      ```
      SMTP_CONNECTION_TIMEOUT=30000
      SMTP_SEND_TIMEOUT=30000
      SMTP_MAX_RETRIES=2
+     SMTP_REJECT_UNAUTHORIZED=true
      ```
 
 3. **Enable GitHub Actions (Optional):**
@@ -138,8 +148,20 @@ Vercel is the easiest and most optimized platform for Next.js applications.
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@host:5432/db` |
 | `BETTER_AUTH_SECRET` | Secret for authentication | Generate with: `openssl rand -base64 32` |
 | `BETTER_AUTH_URL` | Your application URL | `https://your-app.com` |
+| `NEXT_PUBLIC_BETTER_AUTH_URL` | Public auth URL (client-side) | `https://your-app.com` (should match BETTER_AUTH_URL) |
+| `FRONT_END_URL` | Frontend URL for email links | `https://your-app.com` |
+| `NODE_ENV` | Environment mode | `production` |
 
-### Optional Variables (for email)
+### Email Service Configuration
+
+| Variable | Description | Example | Default |
+|----------|-------------|---------|---------|
+| `ENABLE_EMAIL_SERVICE` | Enable/disable email service | `"true"` or `"false"` | `true` (enabled) |
+| `NEXT_PUBLIC_ENABLE_EMAIL_SERVICE` | Client-side email service flag | `"true"` or `"false"` | `true` (enabled) |
+
+**Note:** Both email service flags should match. If not set, defaults to `true` (enabled).
+
+### SMTP Variables (Required if email service is enabled)
 
 | Variable | Description | Example | Default |
 |----------|-------------|---------|---------|
@@ -150,25 +172,22 @@ Vercel is the easiest and most optimized platform for Next.js applications.
 | `SMTP_PASS` | SMTP password/app password | `your-app-password` | - |
 | `SMTP_FROM` | Email sender address | `noreply@your-app.com` | `SMTP_USER` |
 
-### Email Service Feature Flag
-
-| Variable | Description | Example | Default |
-|----------|-------------|---------|---------|
-| `ENABLE_EMAIL_SERVICE` | Enable/disable email service | `"false"` | `true` (enabled) |
-| `NEXT_PUBLIC_ENABLE_EMAIL_SERVICE` | Client-side email service flag | `"false"` | `true` (enabled) |
+**Email Service Behavior:**
 
 **When `ENABLE_EMAIL_SERVICE="false"`:**
-- Email verification is auto-completed on signup
+- Email verification auto-completes on signup
 - Forgot/reset password UI is hidden
 - Invitations and join requests use notifications instead of emails
 - Email verification banner is hidden
 - All email functionality is disabled
+- SMTP configuration is not required
 
 **When `ENABLE_EMAIL_SERVICE="true"` (default):**
 - Full email functionality enabled
 - Email verification required
 - Password reset available
 - Email notifications for invitations and join requests
+- SMTP configuration is required
 
 ### Advanced SMTP Variables (Optional)
 

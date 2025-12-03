@@ -13,14 +13,15 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 export function ThemeToggle() {
-  const { setTheme, theme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
+  const { setTheme, theme } = useTheme()
 
   React.useEffect(() => {
     setMounted(true)
   }, [])
 
-  if (!mounted) {
+  // Return a fallback UI during SSR or if theme is not available
+  if (!mounted || typeof window === 'undefined') {
     return (
       <Button variant="ghost" size="icon" className="h-9 w-9">
         <Sun className="h-4 w-4" />
