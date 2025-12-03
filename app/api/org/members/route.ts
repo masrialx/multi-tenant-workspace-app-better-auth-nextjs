@@ -10,6 +10,7 @@ import {
   successResponse,
   handleApiError,
 } from "@/lib/api-response"
+import { isEmailServiceEnabled } from "@/lib/email-config"
 
 // GET /api/org/members?orgId=...
 export async function GET(request: Request) {
@@ -263,24 +264,28 @@ export async function POST(request: Request) {
       // But this should be investigated
     }
 
-    // Send invitation email
-    try {
-      const { sendEmail } = await import("@/lib/email")
-      const { getOrganizationInvitationTemplate } = await import("@/lib/email-templates")
-      
-      const invitationLink = `${process.env.BETTER_AUTH_URL || "http://localhost:3000"}/workspace?invitation=${invitation.id}`
-      const expiresIn = `${daysUntilExpiration} day${daysUntilExpiration !== 1 ? 's' : ''}`
-      
-      await sendEmail({
-        to: data.email,
-        subject: `You've been invited to join ${organization.name}`,
-        text: `Hi,\n\nYou have been invited to join the organization "${organization.name}".\n\nClick the link below to accept the invitation:\n${invitationLink}\n\nThis invitation will expire in ${expiresIn}. Please accept it before it expires.\n\nIf you did not expect this invitation, you can safely ignore it.\n\nThanks.`,
-        html: getOrganizationInvitationTemplate(organization.name, invitationLink, expiresIn),
-      })
-      console.log(`✅ Invitation email sent to ${data.email}`)
-    } catch (emailError: any) {
-      console.error("❌ Failed to send invitation email:", emailError)
-      // Don't fail the request if email fails
+    // Send invitation email (only if email service is enabled)
+    if (isEmailServiceEnabled()) {
+      try {
+        const { sendEmail } = await import("@/lib/email")
+        const { getOrganizationInvitationTemplate } = await import("@/lib/email-templates")
+        
+        const invitationLink = `${process.env.BETTER_AUTH_URL || "http://localhost:3000"}/workspace?invitation=${invitation.id}`
+        const expiresIn = `${daysUntilExpiration} day${daysUntilExpiration !== 1 ? 's' : ''}`
+        
+        await sendEmail({
+          to: data.email,
+          subject: `You've been invited to join ${organization.name}`,
+          text: `Hi,\n\nYou have been invited to join the organization "${organization.name}".\n\nClick the link below to accept the invitation:\n${invitationLink}\n\nThis invitation will expire in ${expiresIn}. Please accept it before it expires.\n\nIf you did not expect this invitation, you can safely ignore it.\n\nThanks.`,
+          html: getOrganizationInvitationTemplate(organization.name, invitationLink, expiresIn),
+        })
+        console.log(`✅ Invitation email sent to ${data.email}`)
+      } catch (emailError: any) {
+        console.error("❌ Failed to send invitation email:", emailError)
+        // Don't fail the request if email fails
+      }
+    } else {
+      console.log("📧 Email service disabled - invitation email skipped. User will be notified via in-app notification.")
     }
 
     return successResponse(

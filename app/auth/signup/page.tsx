@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast"
 import { signUp } from "@/lib/auth-client"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { UserPlus, AlertTriangle } from "lucide-react"
+import { isEmailServiceEnabledClient } from "@/lib/email-config"
 
 // Force dynamic rendering to prevent build-time prerendering issues
 export const dynamic = 'force-dynamic'
@@ -35,6 +36,7 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [showInvalidEmailDialog, setShowInvalidEmailDialog] = useState(false)
   const [shouldProceedWithInvalidEmail, setShouldProceedWithInvalidEmail] = useState(false)
+  const emailEnabled = isEmailServiceEnabledClient()
 
   // Email validation function - basic format check
   const isValidEmailFormat = (email: string): boolean => {
@@ -127,114 +129,95 @@ export default function SignUpPage() {
       // better-auth signUp returns the user in the result
       const userId = result?.data?.user?.id || null
 
-      if (!userId) {
-        // Try to get user ID from session as fallback
-        try {
-          const sessionResponse = await fetch("/api/auth/session", {
-            credentials: "include",
-          })
-          if (sessionResponse.ok) {
-            const sessionData = await sessionResponse.json()
-            const sessionUserId = sessionData?.user?.id || null
-            if (sessionUserId) {
-              // Use session user ID
-              const verificationResponse = await fetch("/api/auth/send-verification-signup", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  userId: sessionUserId,
-                  email,
-                }),
-              })
+      // Only send verification email if email service is enabled
+      if (emailEnabled) {
+        // Try to get user ID from session if not in result
+        let finalUserId = userId
+        if (!finalUserId) {
+          try {
+            const sessionResponse = await fetch("/api/auth/session", {
+              credentials: "include",
+            })
+            if (sessionResponse.ok) {
+              const sessionData = await sessionResponse.json()
+              finalUserId = sessionData?.user?.id || null
+            }
+          } catch (error) {
+            console.error("Error fetching session:", error)
+          }
+        }
 
-              const verificationData = await verificationResponse.json()
+        // Send verification email if we have a user ID
+        if (finalUserId) {
+          try {
+            const verificationResponse = await fetch("/api/auth/send-verification-signup", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                userId: finalUserId,
+                email,
+              }),
+            })
 
-              if (!verificationResponse.ok || !verificationData.success) {
-                // Show detailed error message
-                let errorTitle = "Email Verification Warning"
-                let errorDescription = verificationData.message || verificationData.error || "Failed to send verification email. Your account was created, but you may need to verify your email later."
-                
-                // Provide more specific guidance
-                if (verificationData.errorCode === "INVALID_EMAIL_DELIVERY" || verificationData.errorCode === "INVALID_FORMAT") {
-                  errorTitle = "Invalid Email Address"
-                  errorDescription = `The email address "${email}" appears to be invalid. Your account was created, but you won't receive verification emails. Please update your email address in your account settings.`
-                } else if (verificationData.errorCode === "SMTP_CONNECTION_ERROR") {
-                  errorTitle = "Email Service Temporarily Unavailable"
-                  errorDescription = "We couldn't send the verification email right now. Your account was created successfully. Please try requesting a verification email again from your workspace."
-                }
+            const verificationData = await verificationResponse.json()
 
-                toast({
-                  title: errorTitle,
-                  description: errorDescription,
-                  variant: "destructive",
-                })
-                // Still proceed to workspace
-                router.push("/workspace")
-                return
+            if (!verificationResponse.ok || !verificationData.success) {
+              // Show detailed error message
+              let errorTitle = "Email Verification Warning"
+              let errorDescription = verificationData.message || verificationData.error || "Failed to send verification email. Your account was created, but you may need to verify your email later."
+              
+              // Provide more specific guidance
+              if (verificationData.errorCode === "INVALID_EMAIL_DELIVERY" || verificationData.errorCode === "INVALID_FORMAT") {
+                errorTitle = "Invalid Email Address"
+                errorDescription = `The email address "${email}" appears to be invalid. Your account was created, but you won't receive verification emails. Please update your email address in your account settings.`
+              } else if (verificationData.errorCode === "SMTP_CONNECTION_ERROR") {
+                errorTitle = "Email Service Temporarily Unavailable"
+                errorDescription = "We couldn't send the verification email right now. Your account was created successfully. Please try requesting a verification email again from your workspace."
               }
 
               toast({
-                title: "Account Created",
-                description: "Verification email sent! Please check your inbox (and spam folder) for the verification link.",
+                title: errorTitle,
+                description: errorDescription,
+                variant: "destructive",
               })
+              // Still proceed to workspace
               router.push("/workspace")
               return
             }
+
+            toast({
+              title: "Account Created",
+              description: "Verification email sent! Please check your inbox (and spam folder) for the verification link.",
+            })
+            router.push("/workspace")
+            return
+          } catch (error) {
+            console.error("Error sending verification email:", error)
+            toast({
+              title: "Account Created",
+              description: "Your account was created, but we couldn't send the verification email. Please try requesting it again from your workspace.",
+            })
+            router.push("/workspace")
+            return
           }
-        } catch (error) {
-          console.error("Error fetching session:", error)
+        } else {
+          // No user ID found - account created but can't verify email
+          toast({
+            title: "Account Created",
+            description: "Your account has been created successfully!",
+          })
+          router.push("/workspace")
+          return
         }
-
+      } else {
+        // Email service disabled - account created, email auto-verified
         toast({
-          title: "Error",
-          description: "Failed to create account. Please try again.",
-          variant: "destructive",
+          title: "Account Created",
+          description: "Your account has been created successfully!",
         })
-        setIsLoading(false)
-        return
-      }
-
-      // Send verification email after successful signup
-      const verificationResponse = await fetch("/api/auth/send-verification-signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          email,
-        }),
-      })
-
-      const verificationData = await verificationResponse.json()
-
-      if (!verificationResponse.ok || !verificationData.success) {
-        // Show detailed error message
-        let errorTitle = "Email Verification Warning"
-        let errorDescription = verificationData.message || verificationData.error || "Failed to send verification email. Your account was created, but you may need to verify your email later."
-        
-        // Provide more specific guidance
-        if (verificationData.errorCode === "INVALID_EMAIL_DELIVERY" || verificationData.errorCode === "INVALID_FORMAT") {
-          errorTitle = "Invalid Email Address"
-          errorDescription = `The email address "${email}" appears to be invalid. Your account was created, but you won't receive verification emails. Please update your email address in your account settings.`
-        } else if (verificationData.errorCode === "SMTP_CONNECTION_ERROR") {
-          errorTitle = "Email Service Temporarily Unavailable"
-          errorDescription = "We couldn't send the verification email right now. Your account was created successfully. Please try requesting a verification email again from your workspace."
-        }
-
-        toast({
-          title: errorTitle,
-          description: errorDescription,
-          variant: "destructive",
-        })
-        // Still proceed to workspace
         router.push("/workspace")
         return
       }
-
-      toast({
-        title: "Account Created",
-        description: "Verification email sent! Please check your inbox (and spam folder) for the verification link.",
-      })
-      router.push("/workspace")
     } catch (error) {
       console.error("Sign up error:", error)
       toast({

@@ -43,8 +43,14 @@ A complete, production-ready multi-tenant workspace application built with **Nex
   - Header (title)
   - Section Type (Table of Contents, Executive Summary, Technical Approach, Design, Capabilities, Focus Document, Narrative)
   - Status (Pending, In-Progress, Completed)
-  - Target & Limit (numeric values)
+  - Target & Limit (numeric values with smart input controls)
   - Reviewer Assignment (Assim, Bini, Mami)
+- **Smart Target/Limit Input**:
+  - Keyboard input support with real-time validation
+  - Arrow key increment/decrement (↑/↓)
+  - Minimum value enforcement (1, cannot be 0 or negative)
+  - Professional error messages for invalid values
+  - Red border and error text for negative/zero values
 - **Organization-Scoped** - All outlines belong to specific organizations
 - **Owner-Only Editing** - Only organization owners can create/edit/delete outlines
 - **Status Tracking** - Visual status indicators with color coding
@@ -69,6 +75,10 @@ A complete, production-ready multi-tenant workspace application built with **Nex
 
 ### 📧 Email System
 - **SMTP Integration** - Full SMTP support with Nodemailer
+- **Email Service Feature Flag** - Enable/disable email functionality via environment variable
+  - `ENABLE_EMAIL_SERVICE` - Control email service (default: true, enabled)
+  - When disabled: Uses notifications instead of emails, auto-verifies emails on signup
+  - When enabled: Full email functionality (verification, password reset, invitations, etc.)
 - **Email Templates** - Beautiful HTML email templates for:
   - Password reset emails
   - Email verification emails
@@ -78,9 +88,10 @@ A complete, production-ready multi-tenant workspace application built with **Nex
   - Organization deletion notifications
 - **Email Action Links** - Direct action links in emails for accepting/rejecting requests
 - **Email Validation** - Comprehensive email format and deliverability checks
-- **Email Verification Banner** - UI component prompting users to verify email
+- **Email Verification Banner** - UI component prompting users to verify email (hidden when email service disabled)
 - **Error Handling** - Graceful email send error handling with user-friendly messages
 - **Multiple SMTP Providers** - Support for Gmail, Outlook, SendGrid, Mailgun, AWS SES
+- **Render/Serverless Optimized** - Automatic environment detection with optimized settings for production
 
 ### 🎨 User Interface
 - **Modern Design** - Beautiful, modern UI with shadcn/ui components
@@ -91,6 +102,8 @@ A complete, production-ready multi-tenant workspace application built with **Nex
 - **Error Handling** - User-friendly error messages and validation feedback
 - **Empty States** - Beautiful empty states for all list views
 - **Gradient Backgrounds** - Modern gradient backgrounds and visual effects
+- **Smart Form Inputs** - Professional input validation with real-time error messages
+- **Accessible Forms** - Keyboard navigation and ARIA-compliant form controls
 
 ### 🛡️ Security Features
 - **Role-Based Authorization** - Granular permission checks on all API routes
@@ -499,7 +512,34 @@ Uses Zod for schema validation:
 
 See [SMTP_SETUP.md](./SMTP_SETUP.md) for detailed email configuration instructions.
 
-Supported providers:
+### Email Service Feature Flag
+
+Control email functionality with environment variables:
+
+```env
+# Enable email service (default: true)
+ENABLE_EMAIL_SERVICE="true"
+NEXT_PUBLIC_ENABLE_EMAIL_SERVICE="true"
+
+# Disable email service (uses notifications instead)
+ENABLE_EMAIL_SERVICE="false"
+NEXT_PUBLIC_ENABLE_EMAIL_SERVICE="false"
+```
+
+**When disabled:**
+- Email verification auto-completes on signup
+- Forgot password UI is hidden
+- Invitations/join requests use notifications only
+- Email verification banner is hidden
+
+**When enabled (default):**
+- Full email functionality
+- Email verification required
+- Password reset available
+- Email notifications for all events
+
+### Supported SMTP Providers
+
 - Gmail (with App Password)
 - Outlook/Hotmail
 - SendGrid
@@ -551,6 +591,14 @@ Set in Vercel/Render dashboard:
 - `SMTP_USER` - SMTP username
 - `SMTP_PASS` - SMTP password/app password
 - `SMTP_FROM` - From email address
+
+**Email Service Feature Flag:**
+- `ENABLE_EMAIL_SERVICE` - Enable/disable email service (default: true)
+  - Set to `"false"` to disable all email functionality
+  - When disabled: Auto-verifies emails, uses notifications instead of emails
+  - When enabled: Full email functionality (verification, password reset, invitations)
+- `NEXT_PUBLIC_ENABLE_EMAIL_SERVICE` - Client-side email service flag (default: true)
+  - Must match `ENABLE_EMAIL_SERVICE` for consistent behavior
 
 **Optional SMTP (for troubleshooting on Render):**
 - `SMTP_CONNECTION_TIMEOUT` - Connection timeout in ms (default: 30000)

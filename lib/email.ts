@@ -3,6 +3,7 @@ import type { Transporter } from "nodemailer"
 import type { EmailTemplateOptions } from "./email-templates"
 import { generateEmailTemplate } from "./email-templates"
 import { validateEmailFormat, canReceiveEmails, getEmailErrorMessage } from "./email-validation"
+import { isEmailServiceEnabled } from "./email-config"
 
 // Detect if we're in a serverless/production environment (Render, Vercel, etc.)
 const isServerless = 
@@ -236,6 +237,16 @@ export function sendEmailAsync(options: SendEmailOptions): void {
  * This version waits for the email to be sent (use for critical emails)
  */
 export async function sendEmail(options: SendEmailOptions) {
+  // Check if email service is enabled
+  if (!isEmailServiceEnabled()) {
+    console.log("📧 Email service is disabled. Skipping email send:", {
+      to: options.to,
+      subject: options.subject,
+    })
+    // Return success but don't actually send email
+    return { success: true, messageId: null, skipped: true }
+  }
+
   // Validate email format before attempting to send
   const emailValidation = validateEmailFormat(options.to)
   if (!emailValidation.valid) {

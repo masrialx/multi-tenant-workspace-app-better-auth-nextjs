@@ -52,10 +52,12 @@ export default function OutlineTablePage() {
     header: "",
     sectionType: SECTION_TYPES[0],
     status: STATUS_OPTIONS[0],
-    target: 0,
-    limit: 0,
+    target: 1, // Minimum value is 1, not 0
+    limit: 1, // Minimum value is 1, not 0
     reviewer: REVIEWER_OPTIONS[0],
   })
+  const [targetError, setTargetError] = useState<string>("")
+  const [limitError, setLimitError] = useState<string>("")
 
   useEffect(() => {
     if (orgId) {
@@ -141,14 +143,19 @@ export default function OutlineTablePage() {
   }
 
   const handleOpenSheet = (outline?: Outline) => {
+    // Clear errors when opening sheet
+    setTargetError("")
+    setLimitError("")
+    
     if (outline) {
       setEditingId(outline.id)
       setFormData({
         header: outline.header,
         sectionType: outline.sectionType,
         status: outline.status,
-        target: outline.target,
-        limit: outline.limit,
+        // Ensure minimum value of 1 for target and limit
+        target: Math.max(1, outline.target || 1),
+        limit: Math.max(1, outline.limit || 1),
         reviewer: outline.reviewer,
       })
     } else {
@@ -157,8 +164,8 @@ export default function OutlineTablePage() {
         header: "",
         sectionType: SECTION_TYPES[0],
         status: STATUS_OPTIONS[0],
-        target: 0,
-        limit: 0,
+        target: 1, // Minimum value is 1, not 0
+        limit: 1, // Minimum value is 1, not 0
         reviewer: REVIEWER_OPTIONS[0],
       })
     }
@@ -388,27 +395,139 @@ export default function OutlineTablePage() {
                   <label className="text-sm font-medium">Target</label>
                   <Input
                     type="number"
-                    value={formData.target}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        target: Number.parseInt(e.target.value) || 0,
-                      })
-                    }
+                    value={formData.target === 0 ? "" : formData.target}
+                    min={1}
+                    className={targetError ? "border-red-500 focus-visible:ring-red-500" : ""}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      // Allow empty string or any number while typing (including 0)
+                      if (value === "") {
+                        setFormData({ ...formData, target: 0 })
+                        setTargetError("")
+                        return
+                      }
+                      const numValue = Number.parseInt(value, 10)
+                      // Allow any number while typing, including 0
+                      if (!Number.isNaN(numValue)) {
+                        setFormData({
+                          ...formData,
+                          target: numValue,
+                        })
+                        // Show error if negative value
+                        if (numValue < 0) {
+                          setTargetError("Value must be positive")
+                        } else if (numValue === 0) {
+                          setTargetError("Minimum: 1")
+                        } else {
+                          setTargetError("")
+                        }
+                      }
+                    }}
+                    onBlur={(e) => {
+                      // Only enforce minimum value of 1 when field loses focus
+                      const value = e.target.value === "" ? 0 : Number.parseInt(e.target.value, 10)
+                      if (Number.isNaN(value) || value < 1) {
+                        setFormData({
+                          ...formData,
+                          target: 1,
+                        })
+                        setTargetError("")
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      // Support arrow keys for quick increment/decrement
+                      if (e.key === "ArrowUp") {
+                        e.preventDefault()
+                        const currentValue = formData.target < 1 ? 1 : formData.target
+                        setFormData({
+                          ...formData,
+                          target: currentValue + 1,
+                        })
+                        setTargetError("")
+                      } else if (e.key === "ArrowDown") {
+                        e.preventDefault()
+                        const currentValue = formData.target < 1 ? 1 : formData.target
+                        setFormData({
+                          ...formData,
+                          target: Math.max(1, currentValue - 1),
+                        })
+                        setTargetError("")
+                      }
+                    }}
+                    title="Enter a number (minimum: 1) or use ↑/↓ arrow keys"
                   />
+                  {targetError && (
+                    <p className="text-sm text-red-500 mt-1">{targetError}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Limit</label>
                   <Input
                     type="number"
-                    value={formData.limit}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        limit: Number.parseInt(e.target.value) || 0,
-                      })
-                    }
+                    value={formData.limit === 0 ? "" : formData.limit}
+                    min={1}
+                    className={limitError ? "border-red-500 focus-visible:ring-red-500" : ""}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      // Allow empty string or any number while typing (including 0)
+                      if (value === "") {
+                        setFormData({ ...formData, limit: 0 })
+                        setLimitError("")
+                        return
+                      }
+                      const numValue = Number.parseInt(value, 10)
+                      // Allow any number while typing, including 0
+                      if (!Number.isNaN(numValue)) {
+                        setFormData({
+                          ...formData,
+                          limit: numValue,
+                        })
+                        // Show error if negative value
+                        if (numValue < 0) {
+                          setLimitError("Value must be positive")
+                        } else if (numValue === 0) {
+                          setLimitError("Minimum: 1")
+                        } else {
+                          setLimitError("")
+                        }
+                      }
+                    }}
+                    onBlur={(e) => {
+                      // Only enforce minimum value of 1 when field loses focus
+                      const value = e.target.value === "" ? 0 : Number.parseInt(e.target.value, 10)
+                      if (Number.isNaN(value) || value < 1) {
+                        setFormData({
+                          ...formData,
+                          limit: 1,
+                        })
+                        setLimitError("")
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      // Support arrow keys for quick increment/decrement
+                      if (e.key === "ArrowUp") {
+                        e.preventDefault()
+                        const currentValue = formData.limit < 1 ? 1 : formData.limit
+                        setFormData({
+                          ...formData,
+                          limit: currentValue + 1,
+                        })
+                        setLimitError("")
+                      } else if (e.key === "ArrowDown") {
+                        e.preventDefault()
+                        const currentValue = formData.limit < 1 ? 1 : formData.limit
+                        setFormData({
+                          ...formData,
+                          limit: Math.max(1, currentValue - 1),
+                        })
+                        setLimitError("")
+                      }
+                    }}
+                    title="Enter a number (minimum: 1) or use ↑/↓ arrow keys"
                   />
+                  {limitError && (
+                    <p className="text-sm text-red-500 mt-1">{limitError}</p>
+                  )}
                 </div>
               </div>
 

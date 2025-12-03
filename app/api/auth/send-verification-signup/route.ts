@@ -5,6 +5,7 @@ import { sendEmail } from "@/lib/email"
 import { getEmailVerificationTemplate } from "@/lib/email-templates"
 import { validateEmailFormat, canReceiveEmails, getEmailErrorMessage } from "@/lib/email-validation"
 import { badRequestResponse, notFoundResponse, successResponse, handleApiError } from "@/lib/api-response"
+import { isEmailServiceEnabled } from "@/lib/email-config"
 
 export async function POST(request: Request) {
   try {
@@ -43,6 +44,19 @@ export async function POST(request: Request) {
 
     if (dbUser.emailVerified) {
       return badRequestResponse("Email is already verified", "ALREADY_VERIFIED")
+    }
+
+    // If email service is disabled, auto-verify the email
+    if (!isEmailServiceEnabled()) {
+      await prisma.user.update({
+        where: { id: data.userId },
+        data: { emailVerified: true },
+      })
+      console.log("📧 Email service disabled - auto-verifying email for user:", data.userId)
+      return successResponse(
+        undefined,
+        "Email automatically verified (email service is disabled)."
+      )
     }
 
     // Generate verification token

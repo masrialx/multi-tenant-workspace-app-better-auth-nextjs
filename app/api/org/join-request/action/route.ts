@@ -154,17 +154,22 @@ export async function GET(request: Request) {
         },
       })
 
-      // Send email notification to requester
+      // Send email notification to requester (only if email service is enabled)
       if (requestingUserEmail) {
-        try {
-          await sendEmail({
-            to: requestingUserEmail,
-            subject: "Join Request Accepted",
-            text: `Your request to join "${organizationName}" has been accepted!`,
-            html: getJoinRequestAcceptedTemplate(organizationName ?? org.name),
-          })
-        } catch (emailError: any) {
-          console.error("Failed to send acceptance email:", emailError)
+        const { isEmailServiceEnabled } = await import("@/lib/email-config")
+        if (isEmailServiceEnabled()) {
+          try {
+            await sendEmail({
+              to: requestingUserEmail,
+              subject: "Join Request Accepted",
+              text: `Your request to join "${organizationName}" has been accepted!`,
+              html: getJoinRequestAcceptedTemplate(organizationName ?? org.name),
+            })
+          } catch (emailError: any) {
+            console.error("Failed to send acceptance email:", emailError)
+          }
+        } else {
+          console.log("📧 Email service disabled - acceptance email skipped. User will be notified via in-app notification.")
         }
       }
 
@@ -191,17 +196,22 @@ export async function GET(request: Request) {
         },
       })
 
-      // Send email notification to requester
+      // Send email notification to requester (only if email service is enabled)
       if (requestingUserEmail) {
-        try {
-          await sendEmail({
-            to: requestingUserEmail,
-            subject: "Join Request Update",
-            text: `Your request to join "${organizationName}" has been rejected.`,
-            html: getJoinRequestRejectedTemplate(organizationName ?? org.name),
-          })
-        } catch (emailError: any) {
-          console.error("Failed to send rejection email:", emailError)
+        const { isEmailServiceEnabled } = await import("@/lib/email-config")
+        if (isEmailServiceEnabled()) {
+          try {
+            await sendEmail({
+              to: requestingUserEmail,
+              subject: "Join Request Update",
+              text: `Your request to join "${organizationName}" has been rejected.`,
+              html: getJoinRequestRejectedTemplate(organizationName ?? org.name),
+            })
+          } catch (emailError: any) {
+            console.error("Failed to send rejection email:", emailError)
+          }
+        } else {
+          console.log("📧 Email service disabled - rejection email skipped. User will be notified via in-app notification.")
         }
       }
 

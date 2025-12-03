@@ -157,6 +157,46 @@ Common issues fixed:
 - **Rate limiting**: Gmail has sending limits (500 emails/day for free accounts)
 - **Spam filtering**: Ensure your "from" address matches your Gmail account
 
+## Email Service Feature Flag
+
+The application includes a feature flag to enable/disable email functionality:
+
+### Environment Variables
+
+```env
+# Enable email service (default: true)
+ENABLE_EMAIL_SERVICE="true"
+NEXT_PUBLIC_ENABLE_EMAIL_SERVICE="true"
+
+# Disable email service
+ENABLE_EMAIL_SERVICE="false"
+NEXT_PUBLIC_ENABLE_EMAIL_SERVICE="false"
+```
+
+### Behavior When Disabled
+
+When `ENABLE_EMAIL_SERVICE="false"`:
+
+- **Signup**: Email is automatically verified, no verification email sent
+- **Signin**: "Forgot password?" link is hidden
+- **Email Verification Banner**: Completely hidden
+- **Invitations**: Uses in-app notifications instead of emails
+- **Join Requests**: Uses in-app notifications instead of emails
+- **All Email Features**: Disabled, app uses notifications only
+
+### When to Disable
+
+- Email service is not working (temporary solution)
+- Testing without email setup
+- Using notifications-only workflow
+- SMTP configuration issues
+
+### Default Behavior
+
+- **Default**: Email service is **enabled** (`true`)
+- If environment variable is not set, email service works normally
+- Set to `"false"` explicitly to disable
+
 ## Security Notes
 
 - Never commit `.env.local` to version control

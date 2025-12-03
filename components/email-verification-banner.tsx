@@ -6,8 +6,15 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { Mail, Loader2, CheckCircle2 } from "lucide-react"
+import { isEmailServiceEnabledClient } from "@/lib/email-config"
 
 export function EmailVerificationBanner() {
+  // Hide banner if email service is disabled
+  const emailEnabled = isEmailServiceEnabledClient()
+  
+  if (!emailEnabled) {
+    return null
+  }
   const { data: session } = useSession()
   const { toast } = useToast()
   const [isEmailVerified, setIsEmailVerified] = useState(true)

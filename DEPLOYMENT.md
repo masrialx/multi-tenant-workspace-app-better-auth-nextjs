@@ -150,6 +150,26 @@ Vercel is the easiest and most optimized platform for Next.js applications.
 | `SMTP_PASS` | SMTP password/app password | `your-app-password` | - |
 | `SMTP_FROM` | Email sender address | `noreply@your-app.com` | `SMTP_USER` |
 
+### Email Service Feature Flag
+
+| Variable | Description | Example | Default |
+|----------|-------------|---------|---------|
+| `ENABLE_EMAIL_SERVICE` | Enable/disable email service | `"false"` | `true` (enabled) |
+| `NEXT_PUBLIC_ENABLE_EMAIL_SERVICE` | Client-side email service flag | `"false"` | `true` (enabled) |
+
+**When `ENABLE_EMAIL_SERVICE="false"`:**
+- Email verification is auto-completed on signup
+- Forgot/reset password UI is hidden
+- Invitations and join requests use notifications instead of emails
+- Email verification banner is hidden
+- All email functionality is disabled
+
+**When `ENABLE_EMAIL_SERVICE="true"` (default):**
+- Full email functionality enabled
+- Email verification required
+- Password reset available
+- Email notifications for invitations and join requests
+
 ### Advanced SMTP Variables (Optional)
 
 | Variable | Description | Example | Default |
@@ -255,6 +275,11 @@ After deployment, verify your application:
 - **Database migrations:** Run `npm run db:migrate` after deployment
 - **Environment variables:** Verify all required variables are set
 - **SMTP issues:** Check SMTP credentials and firewall settings
+- **Email not working:** 
+  - Check `ENABLE_EMAIL_SERVICE` is set to `"true"` (or not set, defaults to true)
+  - Verify SMTP credentials are correct
+  - Check Render logs for SMTP connection errors
+  - Consider temporarily disabling email service: `ENABLE_EMAIL_SERVICE="false"`
 
 ## Monitoring
 

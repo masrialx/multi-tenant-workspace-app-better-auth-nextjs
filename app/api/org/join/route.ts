@@ -104,35 +104,40 @@ export async function POST(request: Request) {
       // Continue - email will still be sent
     }
 
-    // Send email notification to organization owner
+    // Send email notification to organization owner (only if email service is enabled)
     if (owner && owner.email && notificationId) {
-      try {
-        const { sendEmail } = await import("@/lib/email")
-        const { getJoinRequestNotificationTemplate } = await import("@/lib/email-templates")
-        
-        const baseUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000"
-        const workspaceUrl = `${baseUrl}/workspace`
-        const acceptLink = `${baseUrl}/api/org/join-request/action?notificationId=${notificationId}&action=accept`
-        const rejectLink = `${baseUrl}/api/org/join-request/action?notificationId=${notificationId}&action=reject`
-        
-        await sendEmail({
-          to: owner.email,
-          subject: `New Join Request for ${org.name}`,
-          text: `Hello,\n\n${user.name || user.email} (${user.email}) has requested to join your organization "${org.name}".\n\nAccept: ${acceptLink}\nReject: ${rejectLink}\n\nView in workspace: ${workspaceUrl}\n\nThis request will expire in 7 days.`,
-          html: getJoinRequestNotificationTemplate(
-            org.name,
-            user.name || user.email,
-            user.email,
-            acceptLink,
-            rejectLink,
-            workspaceUrl,
-            "7 days"
-          ),
-        })
-        console.log(`✅ Join request email sent to owner: ${owner.email}`)
-      } catch (emailError: any) {
-        console.error("❌ Failed to send join request email to owner:", emailError)
-        // Don't fail the request if email fails
+      const { isEmailServiceEnabled } = await import("@/lib/email-config")
+      if (isEmailServiceEnabled()) {
+        try {
+          const { sendEmail } = await import("@/lib/email")
+          const { getJoinRequestNotificationTemplate } = await import("@/lib/email-templates")
+          
+          const baseUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000"
+          const workspaceUrl = `${baseUrl}/workspace`
+          const acceptLink = `${baseUrl}/api/org/join-request/action?notificationId=${notificationId}&action=accept`
+          const rejectLink = `${baseUrl}/api/org/join-request/action?notificationId=${notificationId}&action=reject`
+          
+          await sendEmail({
+            to: owner.email,
+            subject: `New Join Request for ${org.name}`,
+            text: `Hello,\n\n${user.name || user.email} (${user.email}) has requested to join your organization "${org.name}".\n\nAccept: ${acceptLink}\nReject: ${rejectLink}\n\nView in workspace: ${workspaceUrl}\n\nThis request will expire in 7 days.`,
+            html: getJoinRequestNotificationTemplate(
+              org.name,
+              user.name || user.email,
+              user.email,
+              acceptLink,
+              rejectLink,
+              workspaceUrl,
+              "7 days"
+            ),
+          })
+          console.log(`✅ Join request email sent to owner: ${owner.email}`)
+        } catch (emailError: any) {
+          console.error("❌ Failed to send join request email to owner:", emailError)
+          // Don't fail the request if email fails
+        }
+      } else {
+        console.log("📧 Email service disabled - join request email skipped. Owner will be notified via in-app notification.")
       }
     }
 

@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast"
 import { signIn } from "@/lib/auth-client"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Sparkles } from "lucide-react"
+import { isEmailServiceEnabledClient } from "@/lib/email-config"
 
 // Force dynamic rendering to prevent build-time prerendering issues
 export const dynamic = 'force-dynamic'
@@ -22,6 +23,7 @@ export default function SignInPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const emailEnabled = isEmailServiceEnabledClient()
 
   // Email validation function
   const isValidEmail = (email: string): boolean => {
@@ -138,14 +140,16 @@ export default function SignInPage() {
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-          <div className="mt-4 text-center">
-            <Link 
-              href="/auth/forgot-password" 
-              className="text-sm text-primary hover:underline font-medium transition-colors"
-            >
-              Forgot password?
-            </Link>
-          </div>
+          {emailEnabled && (
+            <div className="mt-4 text-center">
+              <Link 
+                href="/auth/forgot-password" 
+                className="text-sm text-primary hover:underline font-medium transition-colors"
+              >
+                Forgot password?
+              </Link>
+            </div>
+          )}
           <p className="text-sm text-muted-foreground text-center mt-6">
             Don't have an account?{" "}
             <Link href="/auth/signup" className="text-primary hover:underline font-semibold transition-colors">
