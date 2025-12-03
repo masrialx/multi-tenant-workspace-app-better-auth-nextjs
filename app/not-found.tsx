@@ -6,6 +6,9 @@ import { Home, ArrowLeft, FileQuestion } from "lucide-react"
 import Link from "next/link"
 import { ThemeToggle } from "@/components/theme-toggle"
 
+// Force dynamic rendering to prevent build-time prerendering issues
+export const dynamic = 'force-dynamic'
+
 export default function NotFound() {
   const router = useRouter()
 
